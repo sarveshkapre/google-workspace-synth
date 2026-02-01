@@ -30,9 +30,8 @@ See `docs/PROJECT.md` for environment variables and workflow notes.
 
 ## Shipped
 - 2026-02-01: v0.1.0 initial MVP scaffold.
-- 2026-02-01: Snapshot export/import (`/snapshot`) + snapshot CLI; configurable HTTP request size cap.
+- 2026-02-01: Snapshot export/import (`/snapshot`) + snapshot CLI; configurable HTTP request size cap; basic rate limiting.
 
 ## Next
-- Basic rate limiting (local-safe defaults).
 - Simple audit/activity timeline per item.
 - Pagination + cursor support for large datasets.

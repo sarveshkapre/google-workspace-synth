@@ -17,8 +17,11 @@ make check
 - `GWSYNTH_DB_PATH` (default: `./data/gwsynth.db`)
 - `GWSYNTH_SEED` (optional integer for deterministic seeding)
 - `GWSYNTH_MAX_REQUEST_BYTES` (default: `2000000`) - max HTTP request body size
+- `GWSYNTH_RATE_LIMIT_ENABLED` (default: `true`) - basic in-memory per-IP rate limiter
+- `GWSYNTH_RATE_LIMIT_RPM` (default: `600`) - requests per minute
+- `GWSYNTH_RATE_LIMIT_BURST` (default: `60`) - burst capacity
 
 ## Next 3 improvements
-1. Add basic rate limiting (local-safe defaults).
-2. Add per-item activity timeline.
-3. Add pagination + cursor support for large datasets.
+1. Add per-item activity timeline.
+2. Add pagination + cursor support for large datasets.
+3. Improve snapshot portability/versioning.

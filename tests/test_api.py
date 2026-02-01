@@ -3,8 +3,11 @@ from __future__ import annotations
 import importlib
 
 
-def _build_client(db_path, monkeypatch):
+def _build_client(db_path, monkeypatch, env: dict[str, str] | None = None):
     monkeypatch.setenv("GWSYNTH_DB_PATH", str(db_path))
+    if env:
+        for key, value in env.items():
+            monkeypatch.setenv(key, value)
     import gwsynth.main
 
     importlib.reload(gwsynth.main)
@@ -93,3 +96,18 @@ def test_snapshot_export_import(tmp_path, monkeypatch):
 
     users = client2.get("/users").get_json()
     assert any(u["email"] == "snap@example.com" for u in users)
+
+
+def test_rate_limiting(tmp_path, monkeypatch):
+    client = _build_client(
+        tmp_path / "ratelimit.db",
+        monkeypatch,
+        env={
+            "GWSYNTH_RATE_LIMIT_ENABLED": "1",
+            "GWSYNTH_RATE_LIMIT_RPM": "1",
+            "GWSYNTH_RATE_LIMIT_BURST": "1",
+        },
+    )
+    assert client.get("/health").status_code == 200
+    assert client.get("/users").status_code == 200
+    assert client.get("/users").status_code == 429

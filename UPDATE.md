@@ -13,5 +13,5 @@
 make check
 ```
 
-### PR
-Opened PR: https://github.com/sarveshkapre/google-workspace-synth/pull/1
+### Notes
+- Working directly on `main` (no PR workflow).
