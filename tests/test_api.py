@@ -225,3 +225,17 @@ def test_items_filtering(tmp_path, monkeypatch):
 
     children = client.get("/items", query_string={"parent_id": root["id"]}).get_json()
     assert all(item["parent_id"] == root["id"] for item in children["items"])
+
+
+def test_api_key_auth(tmp_path, monkeypatch):
+    client = _build_client(
+        tmp_path / "auth.db",
+        monkeypatch,
+        env={"GWSYNTH_API_KEY": "secret"},
+    )
+
+    assert client.get("/health").status_code == 200
+    assert client.get("/users").status_code == 401
+
+    ok = client.get("/users", headers={"Authorization": "Bearer secret"})
+    assert ok.status_code == 200

@@ -3,7 +3,9 @@ from __future__ import annotations
 from flask import Flask
 
 from .api import register_routes
+from .auth import install_api_key_auth
 from .config import (
+    api_key,
     max_request_bytes,
     rate_limit_burst,
     rate_limit_enabled,
@@ -17,6 +19,7 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = max_request_bytes()
     init_db()
+    install_api_key_auth(app, api_key())
     install_rate_limiter(
         app,
         RateLimitConfig(

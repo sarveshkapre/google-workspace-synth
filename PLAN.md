@@ -32,6 +32,7 @@ See `docs/PROJECT.md` for environment variables and workflow notes.
 - 2026-02-01: v0.1.0 initial MVP scaffold.
 - 2026-02-01: Snapshot export/import (`/snapshot`) + snapshot CLI; configurable HTTP request size cap; basic rate limiting; per-item activity timeline.
 - 2026-02-01: Cursor pagination for list endpoints (`limit`, `cursor`, `next_cursor`).
+- 2026-02-01: Optional API key auth via `GWSYNTH_API_KEY`.
 
 ## Next
 - Improve snapshot portability/versioning.

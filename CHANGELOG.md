@@ -9,6 +9,7 @@ This file mirrors `docs/CHANGELOG.md` (kept in sync for repo-root discoverabilit
 - Add per-item activity timeline (`GET /items/<item_id>/activity`).
 - Add optional cursor pagination (`limit`, `cursor`, `next_cursor`) on list endpoints.
 - Add item filtering on `GET /items` (`parent_id`, `owner_user_id`, `item_type`).
+- Add optional API key auth via `GWSYNTH_API_KEY`.
 
 ## v0.1.0 - 2026-02-01
 - Initial MVP: Flask API, SQLite storage, seeder CLI, CI, and docs.

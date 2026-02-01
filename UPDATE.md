@@ -9,6 +9,9 @@
 - Default HTTP request size cap via `GWSYNTH_MAX_REQUEST_BYTES` (default: `2000000`).
 - Basic in-memory per-IP rate limiting via `GWSYNTH_RATE_LIMIT_*`.
 - Per-item activity timeline via `GET /items/<item_id>/activity`.
+- Cursor pagination (`limit`, `cursor`, `next_cursor`) on list endpoints.
+- `GET /items` filtering via `parent_id`, `owner_user_id`, `item_type`.
+- Optional API key auth via `GWSYNTH_API_KEY`.
 
 ### Verify
 ```bash

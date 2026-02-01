@@ -20,8 +20,9 @@ make check
 - `GWSYNTH_RATE_LIMIT_ENABLED` (default: `true`) - basic in-memory per-IP rate limiter
 - `GWSYNTH_RATE_LIMIT_RPM` (default: `600`) - requests per minute
 - `GWSYNTH_RATE_LIMIT_BURST` (default: `60`) - burst capacity
+- `GWSYNTH_API_KEY` (optional) - require `Authorization: Bearer ...` or `X-API-Key: ...` (except `/health`)
 
 ## Next 3 improvements
 1. Improve snapshot portability/versioning.
-2. Add basic auth option (dev-only).
-3. Add filtering helpers (by owner, type, etc.).
+2. Add filtering helpers (by owner, type, etc.).
+3. Add export/import for selective tables.

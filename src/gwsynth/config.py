@@ -61,6 +61,14 @@ def rate_limit_burst() -> int:
     return value if value > 0 else DEFAULT_RATE_LIMIT_BURST
 
 
+def api_key() -> str | None:
+    raw = os.environ.get("GWSYNTH_API_KEY")
+    if raw is None:
+        return None
+    value = raw.strip()
+    return value or None
+
+
 def seed_value() -> int | None:
     raw = os.environ.get("GWSYNTH_SEED")
     if not raw:

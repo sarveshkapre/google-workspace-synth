@@ -10,7 +10,8 @@ Synthetic Google Workspace (Docs/Drive/Sheets) with permissions and sharing APIs
 - Provides a CLI seeder for repeatable demo data
 
 ## Important note
-This server ships with no authentication and is intended for local development or demo use only.
+This server is intended for local development or demo use only. It ships with no authentication by
+default, but supports an optional API key for safer demos.
 
 ## Quickstart
 
@@ -35,6 +36,7 @@ make seed
 - `GWSYNTH_RATE_LIMIT_ENABLED` (default: `true`) - basic in-memory per-IP rate limiter
 - `GWSYNTH_RATE_LIMIT_RPM` (default: `600`) - requests per minute
 - `GWSYNTH_RATE_LIMIT_BURST` (default: `60`) - burst capacity
+- `GWSYNTH_API_KEY` (optional) - require `Authorization: Bearer ...` or `X-API-Key: ...` (except `/health`)
 
 ## API highlights
 - `POST /users`, `GET /users`
