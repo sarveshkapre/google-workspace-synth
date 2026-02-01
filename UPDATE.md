@@ -14,10 +14,4 @@ make check
 ```
 
 ### PR
-If `gh` is installed and authenticated:
-```bash
-git checkout -b feat/snapshots
-git push -u origin feat/snapshots
-gh pr create --title "Add snapshot export/import" --body "Adds /snapshot endpoints + snapshot CLI, plus configurable request size cap."
-```
-
+Opened PR: https://github.com/sarveshkapre/google-workspace-synth/pull/1
