@@ -28,6 +28,11 @@ Seed a demo org:
 make seed
 ```
 
+## Environment
+- `GWSYNTH_DB_PATH` (default: `./data/gwsynth.db`)
+- `GWSYNTH_SEED` (optional integer for deterministic seeding)
+- `GWSYNTH_MAX_REQUEST_BYTES` (default: `2000000`) - max HTTP request body size
+
 ## API highlights
 - `POST /users`, `GET /users`
 - `POST /groups`, `POST /groups/{group_id}/members`
@@ -36,7 +41,31 @@ make seed
 - `PUT /items/{item_id}/content`
 - `POST /items/{item_id}/permissions`
 - `POST /items/{item_id}/share-links`
+- `GET /snapshot`, `POST /snapshot` (export/import seeded demo org snapshots)
 - `GET /search?q=...`
+
+## Snapshots (export/import)
+
+Export a full org snapshot via API:
+
+```bash
+curl -s http://localhost:8000/snapshot > snapshot.json
+```
+
+Import (replaces current DB contents):
+
+```bash
+curl -s -X POST "http://localhost:8000/snapshot?mode=replace" \\
+  -H "content-type: application/json" \\
+  --data-binary @snapshot.json
+```
+
+Or export/import directly from the SQLite DB:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot export --out snapshot.json
+PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot import --in snapshot.json --mode replace
+```
 
 ## Docker
 

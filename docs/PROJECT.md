@@ -16,8 +16,9 @@ make check
 ## Environment
 - `GWSYNTH_DB_PATH` (default: `./data/gwsynth.db`)
 - `GWSYNTH_SEED` (optional integer for deterministic seeding)
+- `GWSYNTH_MAX_REQUEST_BYTES` (default: `2000000`) - max HTTP request body size
 
 ## Next 3 improvements
-1. Add export/import for synthetic org snapshots.
-2. Add basic rate limiting and request size caps.
-3. Add per-item activity timeline.
+1. Add basic rate limiting (local-safe defaults).
+2. Add per-item activity timeline.
+3. Add pagination + cursor support for large datasets.
