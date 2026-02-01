@@ -10,6 +10,7 @@ from uuid import uuid4
 from flask import Flask, jsonify, request
 
 from .db import get_connection
+from .pagination import Cursor, decode_cursor, encode_cursor, parse_limit
 from .schemas import ItemType, PrincipalType, RoleType
 from .snapshot import export_snapshot, import_snapshot
 
@@ -103,6 +104,80 @@ def _record_activity(
     )
 
 
+def _page_clause_asc(
+    created_at_col: str, id_col: str, cursor: Cursor
+) -> tuple[str, tuple[str, str, str]]:
+    clause = f"({created_at_col} > ? OR ({created_at_col} = ? AND {id_col} > ?))"
+    return clause, (cursor.created_at, cursor.created_at, cursor.id)
+
+
+def _page_clause_desc(
+    created_at_col: str, id_col: str, cursor: Cursor
+) -> tuple[str, tuple[str, str, str]]:
+    clause = f"({created_at_col} < ? OR ({created_at_col} = ? AND {id_col} < ?))"
+    return clause, (cursor.created_at, cursor.created_at, cursor.id)
+
+
+def _paginate_rows_asc(
+    conn: sqlite3.Connection,
+    *,
+    table: str,
+    where: list[str],
+    params: list[Any],
+    limit: int,
+    cursor: Cursor | None,
+) -> tuple[list[sqlite3.Row], str | None]:
+    where_clauses = list(where)
+    all_params: list[Any] = list(params)
+    if cursor is not None:
+        clause, clause_params = _page_clause_asc("created_at", "id", cursor)
+        where_clauses.append(clause)
+        all_params.extend(list(clause_params))
+
+    where_sql = f" WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+    rows = conn.execute(
+        f"SELECT * FROM {table}{where_sql} ORDER BY created_at, id LIMIT ?",
+        (*all_params, limit + 1),
+    ).fetchall()
+
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = encode_cursor(Cursor(created_at=last["created_at"], id=last["id"]))
+        rows = rows[:limit]
+    return rows, next_cursor
+
+
+def _paginate_rows_desc(
+    conn: sqlite3.Connection,
+    *,
+    table: str,
+    where: list[str],
+    params: list[Any],
+    limit: int,
+    cursor: Cursor | None,
+) -> tuple[list[sqlite3.Row], str | None]:
+    where_clauses = list(where)
+    all_params: list[Any] = list(params)
+    if cursor is not None:
+        clause, clause_params = _page_clause_desc("created_at", "id", cursor)
+        where_clauses.append(clause)
+        all_params.extend(list(clause_params))
+
+    where_sql = f" WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+    rows = conn.execute(
+        f"SELECT * FROM {table}{where_sql} ORDER BY created_at DESC, id DESC LIMIT ?",
+        (*all_params, limit + 1),
+    ).fetchall()
+
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = encode_cursor(Cursor(created_at=last["created_at"], id=last["id"]))
+        rows = rows[:limit]
+    return rows, next_cursor
+
+
 def register_routes(app: Flask) -> None:
     def handler(fn: Callable[..., Any]) -> Callable[..., Any]:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -186,19 +261,40 @@ def register_routes(app: Flask) -> None:
 
     @app.get("/users")
     def list_users() -> Any:
+        limit = parse_limit(request.args.get("limit"))
+        cursor_raw = request.args.get("cursor")
+        cursor = decode_cursor(cursor_raw) if cursor_raw else None
         with get_connection() as conn:
-            rows = conn.execute("SELECT * FROM users ORDER BY created_at").fetchall()
-        return jsonify(
-            [
+            if limit is None:
+                rows = conn.execute("SELECT * FROM users ORDER BY created_at, id").fetchall()
+                return jsonify(
+                    [
+                        {
+                            "id": row["id"],
+                            "email": row["email"],
+                            "display_name": row["display_name"],
+                            "created_at": row["created_at"],
+                        }
+                        for row in rows
+                    ]
+                )
+            rows, next_cursor = _paginate_rows_asc(
+                conn, table="users", where=[], params=[], limit=limit, cursor=cursor
+            )
+            return jsonify(
                 {
-                    "id": row["id"],
-                    "email": row["email"],
-                    "display_name": row["display_name"],
-                    "created_at": row["created_at"],
+                    "users": [
+                        {
+                            "id": row["id"],
+                            "email": row["email"],
+                            "display_name": row["display_name"],
+                            "created_at": row["created_at"],
+                        }
+                        for row in rows
+                    ],
+                    "next_cursor": next_cursor,
                 }
-                for row in rows
-            ]
-        )
+            )
 
     @app.get("/users/<user_id>")
     def get_user(user_id: str) -> Any:
@@ -239,19 +335,40 @@ def register_routes(app: Flask) -> None:
 
     @app.get("/groups")
     def list_groups() -> Any:
+        limit = parse_limit(request.args.get("limit"))
+        cursor_raw = request.args.get("cursor")
+        cursor = decode_cursor(cursor_raw) if cursor_raw else None
         with get_connection() as conn:
-            rows = conn.execute("SELECT * FROM groups ORDER BY created_at").fetchall()
-        return jsonify(
-            [
+            if limit is None:
+                rows = conn.execute("SELECT * FROM groups ORDER BY created_at, id").fetchall()
+                return jsonify(
+                    [
+                        {
+                            "id": row["id"],
+                            "name": row["name"],
+                            "description": row["description"],
+                            "created_at": row["created_at"],
+                        }
+                        for row in rows
+                    ]
+                )
+            rows, next_cursor = _paginate_rows_asc(
+                conn, table="groups", where=[], params=[], limit=limit, cursor=cursor
+            )
+            return jsonify(
                 {
-                    "id": row["id"],
-                    "name": row["name"],
-                    "description": row["description"],
-                    "created_at": row["created_at"],
+                    "groups": [
+                        {
+                            "id": row["id"],
+                            "name": row["name"],
+                            "description": row["description"],
+                            "created_at": row["created_at"],
+                        }
+                        for row in rows
+                    ],
+                    "next_cursor": next_cursor,
                 }
-                for row in rows
-            ]
-        )
+            )
 
     @app.get("/groups/<group_id>")
     def get_group(group_id: str) -> Any:
@@ -396,15 +513,30 @@ def register_routes(app: Flask) -> None:
     @app.get("/items")
     def list_items() -> Any:
         parent_id = request.args.get("parent_id")
+        limit = parse_limit(request.args.get("limit"))
+        cursor_raw = request.args.get("cursor")
+        cursor = decode_cursor(cursor_raw) if cursor_raw else None
         with get_connection() as conn:
-            if parent_id is None:
-                rows = conn.execute("SELECT * FROM items ORDER BY created_at").fetchall()
-            else:
+            where: list[str] = []
+            params: list[Any] = []
+            if parent_id is not None:
+                where.append("parent_id = ?")
+                params.append(parent_id)
+
+            if limit is None:
+                where_sql = f" WHERE {' AND '.join(where)}" if where else ""
                 rows = conn.execute(
-                    "SELECT * FROM items WHERE parent_id = ? ORDER BY created_at",
-                    (parent_id,),
+                    f"SELECT * FROM items{where_sql} ORDER BY created_at, id",
+                    tuple(params),
                 ).fetchall()
-        return jsonify({"items": [_row_to_item(row) for row in rows]})
+                return jsonify({"items": [_row_to_item(row) for row in rows]})
+
+            rows, next_cursor = _paginate_rows_asc(
+                conn, table="items", where=where, params=params, limit=limit, cursor=cursor
+            )
+            return jsonify(
+                {"items": [_row_to_item(row) for row in rows], "next_cursor": next_cursor}
+            )
 
     @app.get("/items/<item_id>")
     def get_item(item_id: str) -> Any:
@@ -545,26 +677,54 @@ def register_routes(app: Flask) -> None:
 
     @app.get("/items/<item_id>/permissions")
     def list_permissions(item_id: str) -> Any:
+        limit = parse_limit(request.args.get("limit"))
+        cursor_raw = request.args.get("cursor")
+        cursor = decode_cursor(cursor_raw) if cursor_raw else None
         with get_connection() as conn:
-            rows = conn.execute(
-                "SELECT * FROM permissions WHERE item_id = ?",
-                (item_id,),
-            ).fetchall()
-        return jsonify(
-            {
-                "permissions": [
+            if limit is None:
+                rows = conn.execute(
+                    "SELECT * FROM permissions WHERE item_id = ? ORDER BY created_at, id",
+                    (item_id,),
+                ).fetchall()
+                return jsonify(
                     {
-                        "id": row["id"],
-                        "item_id": row["item_id"],
-                        "principal_type": row["principal_type"],
-                        "principal_id": row["principal_id"],
-                        "role": row["role"],
-                        "created_at": row["created_at"],
+                        "permissions": [
+                            {
+                                "id": row["id"],
+                                "item_id": row["item_id"],
+                                "principal_type": row["principal_type"],
+                                "principal_id": row["principal_id"],
+                                "role": row["role"],
+                                "created_at": row["created_at"],
+                            }
+                            for row in rows
+                        ]
                     }
-                    for row in rows
-                ]
-            }
-        )
+                )
+            rows, next_cursor = _paginate_rows_asc(
+                conn,
+                table="permissions",
+                where=["item_id = ?"],
+                params=[item_id],
+                limit=limit,
+                cursor=cursor,
+            )
+            return jsonify(
+                {
+                    "permissions": [
+                        {
+                            "id": row["id"],
+                            "item_id": row["item_id"],
+                            "principal_type": row["principal_type"],
+                            "principal_id": row["principal_id"],
+                            "role": row["role"],
+                            "created_at": row["created_at"],
+                        }
+                        for row in rows
+                    ],
+                    "next_cursor": next_cursor,
+                }
+            )
 
     @app.delete("/items/<item_id>/permissions/<permission_id>")
     def delete_permission(item_id: str, permission_id: str) -> Any:
@@ -659,26 +819,54 @@ def register_routes(app: Flask) -> None:
 
     @app.get("/items/<item_id>/share-links")
     def list_share_links(item_id: str) -> Any:
+        limit = parse_limit(request.args.get("limit"))
+        cursor_raw = request.args.get("cursor")
+        cursor = decode_cursor(cursor_raw) if cursor_raw else None
         with get_connection() as conn:
-            rows = conn.execute(
-                "SELECT * FROM share_links WHERE item_id = ?",
-                (item_id,),
-            ).fetchall()
-        return jsonify(
-            {
-                "share_links": [
+            if limit is None:
+                rows = conn.execute(
+                    "SELECT * FROM share_links WHERE item_id = ? ORDER BY created_at, id",
+                    (item_id,),
+                ).fetchall()
+                return jsonify(
                     {
-                        "id": row["id"],
-                        "item_id": row["item_id"],
-                        "token": row["token"],
-                        "role": row["role"],
-                        "expires_at": row["expires_at"],
-                        "created_at": row["created_at"],
+                        "share_links": [
+                            {
+                                "id": row["id"],
+                                "item_id": row["item_id"],
+                                "token": row["token"],
+                                "role": row["role"],
+                                "expires_at": row["expires_at"],
+                                "created_at": row["created_at"],
+                            }
+                            for row in rows
+                        ]
                     }
-                    for row in rows
-                ]
-            }
-        )
+                )
+            rows, next_cursor = _paginate_rows_asc(
+                conn,
+                table="share_links",
+                where=["item_id = ?"],
+                params=[item_id],
+                limit=limit,
+                cursor=cursor,
+            )
+            return jsonify(
+                {
+                    "share_links": [
+                        {
+                            "id": row["id"],
+                            "item_id": row["item_id"],
+                            "token": row["token"],
+                            "role": row["role"],
+                            "expires_at": row["expires_at"],
+                            "created_at": row["created_at"],
+                        }
+                        for row in rows
+                    ],
+                    "next_cursor": next_cursor,
+                }
+            )
 
     @app.delete("/items/<item_id>/share-links/<link_id>")
     def delete_share_link(item_id: str, link_id: str) -> Any:
@@ -768,22 +956,52 @@ def register_routes(app: Flask) -> None:
 
     @app.get("/items/<item_id>/comments")
     def list_comments(item_id: str) -> Any:
+        limit = parse_limit(request.args.get("limit"))
+        cursor_raw = request.args.get("cursor")
+        cursor = decode_cursor(cursor_raw) if cursor_raw else None
         with get_connection() as conn:
-            rows = conn.execute("SELECT * FROM comments WHERE item_id = ?", (item_id,)).fetchall()
-        return jsonify(
-            {
-                "comments": [
+            if limit is None:
+                rows = conn.execute(
+                    "SELECT * FROM comments WHERE item_id = ? ORDER BY created_at, id",
+                    (item_id,),
+                ).fetchall()
+                return jsonify(
                     {
-                        "id": row["id"],
-                        "item_id": row["item_id"],
-                        "author_user_id": row["author_user_id"],
-                        "body": row["body"],
-                        "created_at": row["created_at"],
+                        "comments": [
+                            {
+                                "id": row["id"],
+                                "item_id": row["item_id"],
+                                "author_user_id": row["author_user_id"],
+                                "body": row["body"],
+                                "created_at": row["created_at"],
+                            }
+                            for row in rows
+                        ]
                     }
-                    for row in rows
-                ]
-            }
-        )
+                )
+            rows, next_cursor = _paginate_rows_asc(
+                conn,
+                table="comments",
+                where=["item_id = ?"],
+                params=[item_id],
+                limit=limit,
+                cursor=cursor,
+            )
+            return jsonify(
+                {
+                    "comments": [
+                        {
+                            "id": row["id"],
+                            "item_id": row["item_id"],
+                            "author_user_id": row["author_user_id"],
+                            "body": row["body"],
+                            "created_at": row["created_at"],
+                        }
+                        for row in rows
+                    ],
+                    "next_cursor": next_cursor,
+                }
+            )
 
     @app.get("/search")
     @handler
@@ -791,57 +1009,55 @@ def register_routes(app: Flask) -> None:
         q = request.args.get("q", "").strip()
         if not q:
             raise ValueError("q is required")
+        limit = parse_limit(request.args.get("limit"))
+        cursor_raw = request.args.get("cursor")
+        cursor = decode_cursor(cursor_raw) if cursor_raw else None
         like = f"%{q}%"
         with get_connection() as conn:
-            rows = conn.execute(
-                """
-                SELECT * FROM items
-                WHERE name LIKE ? OR content_text LIKE ? OR content_json LIKE ?
-                ORDER BY created_at
-                """,
-                (like, like, like),
-            ).fetchall()
-        return jsonify({"items": [_row_to_item(row) for row in rows]})
+            where = "(name LIKE ? OR content_text LIKE ? OR content_json LIKE ?)"
+            if limit is None:
+                rows = conn.execute(
+                    f"SELECT * FROM items WHERE {where} ORDER BY created_at, id",
+                    (like, like, like),
+                ).fetchall()
+                return jsonify({"items": [_row_to_item(row) for row in rows]})
+            rows, next_cursor = _paginate_rows_asc(
+                conn,
+                table="items",
+                where=[where],
+                params=[like, like, like],
+                limit=limit,
+                cursor=cursor,
+            )
+            return jsonify(
+                {"items": [_row_to_item(row) for row in rows], "next_cursor": next_cursor}
+            )
 
     @app.get("/items/<item_id>/activity")
     @handler
     def list_activity(item_id: str) -> Any:
-        limit_raw = request.args.get("limit", "50")
-        try:
-            limit = int(limit_raw)
-        except ValueError:
-            raise ValueError("limit must be an integer") from None
-        if limit < 1 or limit > 200:
-            raise ValueError("limit must be between 1 and 200")
+        limit = parse_limit(request.args.get("limit")) or 50
+        cursor_raw = request.args.get("cursor")
+        cursor = decode_cursor(cursor_raw) if cursor_raw else None
 
         before = request.args.get("before")
         before = before.strip() if before else None
+        if before and cursor is None:
+            cursor = Cursor(created_at=before, id="")
 
         with get_connection() as conn:
             item = conn.execute("SELECT id FROM items WHERE id = ?", (item_id,)).fetchone()
             if not item:
                 return _json_error("Item not found", 404)
 
-            if before:
-                rows = conn.execute(
-                    """
-                    SELECT * FROM activities
-                    WHERE item_id = ? AND created_at < ?
-                    ORDER BY created_at DESC, id DESC
-                    LIMIT ?
-                    """,
-                    (item_id, before, limit),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """
-                    SELECT * FROM activities
-                    WHERE item_id = ?
-                    ORDER BY created_at DESC, id DESC
-                    LIMIT ?
-                    """,
-                    (item_id, limit),
-                ).fetchall()
+            rows, next_cursor = _paginate_rows_desc(
+                conn,
+                table="activities",
+                where=["item_id = ?"],
+                params=[item_id],
+                limit=limit,
+                cursor=cursor,
+            )
 
         events: list[dict[str, Any]] = []
         for row in rows:
@@ -857,4 +1073,4 @@ def register_routes(app: Flask) -> None:
                     "created_at": row["created_at"],
                 }
             )
-        return jsonify({"events": events})
+        return jsonify({"events": events, "next_cursor": next_cursor})

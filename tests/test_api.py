@@ -162,3 +162,23 @@ def test_item_activity_timeline(tmp_path, monkeypatch):
     assert "permission.created" in event_types
     assert "share_link.created" in event_types
     assert "comment.created" in event_types
+
+
+def test_pagination_users(tmp_path, monkeypatch):
+    client = _build_client(tmp_path / "paging.db", monkeypatch)
+
+    for i in range(3):
+        resp = client.post(
+            "/users",
+            json={"email": f"u{i}@example.com", "display_name": f"User {i}"},
+        )
+        assert resp.status_code == 201
+
+    page1 = client.get("/users", query_string={"limit": 2}).get_json()
+    assert len(page1["users"]) == 2
+    assert page1["next_cursor"]
+
+    page2 = client.get(
+        "/users", query_string={"limit": 2, "cursor": page1["next_cursor"]}
+    ).get_json()
+    assert len(page2["users"]) == 1

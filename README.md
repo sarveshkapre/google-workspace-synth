@@ -48,6 +48,13 @@ make seed
 - `GET /snapshot`, `POST /snapshot` (export/import seeded demo org snapshots)
 - `GET /search?q=...`
 
+## Pagination
+Most list endpoints support optional cursor pagination via:
+- `?limit=...` (1–200)
+- `?cursor=...` (from `next_cursor`)
+
+When `limit` is provided, responses include `next_cursor` when there is another page.
+
 ## Snapshots (export/import)
 
 Export a full org snapshot via API:
