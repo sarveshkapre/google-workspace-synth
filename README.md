@@ -55,6 +55,9 @@ Most list endpoints support optional cursor pagination via:
 
 When `limit` is provided, responses include `next_cursor` when there is another page.
 
+## Filtering
+- `GET /items` supports `parent_id`, `owner_user_id`, and `item_type` (folder/doc/sheet), and these compose with pagination.
+
 ## Snapshots (export/import)
 
 Export a full org snapshot via API:

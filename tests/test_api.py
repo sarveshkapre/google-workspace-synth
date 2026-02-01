@@ -182,3 +182,46 @@ def test_pagination_users(tmp_path, monkeypatch):
         "/users", query_string={"limit": 2, "cursor": page1["next_cursor"]}
     ).get_json()
     assert len(page2["users"]) == 1
+
+
+def test_items_filtering(tmp_path, monkeypatch):
+    client = _build_client(tmp_path / "filters.db", monkeypatch)
+
+    alice = client.post(
+        "/users", json={"email": "alice@example.com", "display_name": "Alice"}
+    ).get_json()
+    bob = client.post("/users", json={"email": "bob@example.com", "display_name": "Bob"}).get_json()
+
+    root = client.post(
+        "/items",
+        json={"name": "Root", "item_type": "folder", "owner_user_id": alice["id"]},
+    ).get_json()
+    client.post(
+        "/items",
+        json={
+            "name": "Alice Doc",
+            "item_type": "doc",
+            "parent_id": root["id"],
+            "owner_user_id": alice["id"],
+            "content_text": "Hi",
+        },
+    )
+    client.post(
+        "/items",
+        json={
+            "name": "Bob Sheet",
+            "item_type": "sheet",
+            "parent_id": root["id"],
+            "owner_user_id": bob["id"],
+            "sheet_data": {"A1": "1"},
+        },
+    )
+
+    by_alice = client.get("/items", query_string={"owner_user_id": alice["id"]}).get_json()
+    assert all(item["owner_user_id"] == alice["id"] for item in by_alice["items"])
+
+    docs = client.get("/items", query_string={"item_type": "doc"}).get_json()
+    assert all(item["item_type"] == "doc" for item in docs["items"])
+
+    children = client.get("/items", query_string={"parent_id": root["id"]}).get_json()
+    assert all(item["parent_id"] == root["id"] for item in children["items"])

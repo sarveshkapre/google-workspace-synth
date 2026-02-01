@@ -513,6 +513,10 @@ def register_routes(app: Flask) -> None:
     @app.get("/items")
     def list_items() -> Any:
         parent_id = request.args.get("parent_id")
+        owner_user_id = request.args.get("owner_user_id")
+        owner_user_id = owner_user_id.strip() if owner_user_id else None
+        item_type_raw = request.args.get("item_type")
+        item_type = _parse_item_type(item_type_raw.strip()) if item_type_raw else None
         limit = parse_limit(request.args.get("limit"))
         cursor_raw = request.args.get("cursor")
         cursor = decode_cursor(cursor_raw) if cursor_raw else None
@@ -522,6 +526,14 @@ def register_routes(app: Flask) -> None:
             if parent_id is not None:
                 where.append("parent_id = ?")
                 params.append(parent_id)
+            if owner_user_id is not None:
+                if not owner_user_id:
+                    return _json_error("owner_user_id must be non-empty", 400)
+                where.append("owner_user_id = ?")
+                params.append(owner_user_id)
+            if item_type is not None:
+                where.append("item_type = ?")
+                params.append(item_type)
 
             if limit is None:
                 where_sql = f" WHERE {' AND '.join(where)}" if where else ""
