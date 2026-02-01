@@ -78,6 +78,16 @@ def init_db() -> None:
                 FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE,
                 FOREIGN KEY(author_user_id) REFERENCES users(id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS activities (
+                id TEXT PRIMARY KEY,
+                item_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                actor_user_id TEXT,
+                data_json TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE,
+                FOREIGN KEY(actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
             CREATE INDEX IF NOT EXISTS idx_groups_name ON groups(name);
             CREATE INDEX IF NOT EXISTS idx_items_parent ON items(parent_id);
@@ -85,6 +95,8 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_permissions_item ON permissions(item_id);
             CREATE INDEX IF NOT EXISTS idx_share_links_item ON share_links(item_id);
             CREATE INDEX IF NOT EXISTS idx_comments_item ON comments(item_id);
+            CREATE INDEX IF NOT EXISTS idx_activities_item_created
+            ON activities(item_id, created_at);
             """
         )
 

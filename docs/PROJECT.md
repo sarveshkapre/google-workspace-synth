@@ -22,6 +22,6 @@ make check
 - `GWSYNTH_RATE_LIMIT_BURST` (default: `60`) - burst capacity
 
 ## Next 3 improvements
-1. Add per-item activity timeline.
-2. Add pagination + cursor support for large datasets.
-3. Improve snapshot portability/versioning.
+1. Add pagination + cursor support for large datasets.
+2. Improve snapshot portability/versioning.
+3. Add basic auth option (dev-only).

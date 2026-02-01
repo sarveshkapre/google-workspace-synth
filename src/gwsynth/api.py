@@ -75,6 +75,34 @@ def _row_to_item(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+def _json_dumps(data: dict[str, Any]) -> str:
+    return json.dumps(data, separators=(",", ":"), sort_keys=True)
+
+
+def _record_activity(
+    conn: sqlite3.Connection,
+    *,
+    item_id: str,
+    event_type: str,
+    actor_user_id: str | None,
+    data: dict[str, Any],
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO activities (id, item_id, event_type, actor_user_id, data_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            str(uuid4()),
+            item_id,
+            event_type,
+            actor_user_id,
+            _json_dumps(data),
+            _now(),
+        ),
+    )
+
+
 def register_routes(app: Flask) -> None:
     def handler(fn: Callable[..., Any]) -> Callable[..., Any]:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -99,6 +127,7 @@ def register_routes(app: Flask) -> None:
             permissions = conn.execute("SELECT COUNT(*) FROM permissions").fetchone()[0]
             share_links = conn.execute("SELECT COUNT(*) FROM share_links").fetchone()[0]
             comments = conn.execute("SELECT COUNT(*) FROM comments").fetchone()[0]
+            activities = conn.execute("SELECT COUNT(*) FROM activities").fetchone()[0]
         return jsonify(
             {
                 "users": users,
@@ -107,6 +136,7 @@ def register_routes(app: Flask) -> None:
                 "permissions": permissions,
                 "share_links": share_links,
                 "comments": comments,
+                "activities": activities,
             }
         )
 
@@ -353,6 +383,13 @@ def register_routes(app: Flask) -> None:
                     created_at,
                 ),
             )
+            _record_activity(
+                conn,
+                item_id=item_id,
+                event_type="item.created",
+                actor_user_id=owner_user_id,
+                data={"item_type": item_type, "name": name, "parent_id": parent_id},
+            )
             row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
         return jsonify(_row_to_item(row)), 201
 
@@ -381,10 +418,18 @@ def register_routes(app: Flask) -> None:
     @handler
     def update_item_content(item_id: str) -> Any:
         payload = request.get_json(silent=True) or {}
+        actor_user_id = _optional_str(payload, "actor_user_id")
         with get_connection() as conn:
             row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
             if not row:
                 return _json_error("Item not found", 404)
+            if actor_user_id:
+                actor = conn.execute(
+                    "SELECT id FROM users WHERE id = ?",
+                    (actor_user_id,),
+                ).fetchone()
+                if not actor:
+                    return _json_error("Actor not found", 404)
             if row["item_type"] == "doc":
                 content_text = _optional_str(payload, "content_text")
                 if content_text is None:
@@ -393,6 +438,13 @@ def register_routes(app: Flask) -> None:
                     "UPDATE items SET content_text = ?, updated_at = ? WHERE id = ?",
                     (content_text, _now(), item_id),
                 )
+                _record_activity(
+                    conn,
+                    item_id=item_id,
+                    event_type="item.content_updated",
+                    actor_user_id=actor_user_id,
+                    data={"content_text_length": len(content_text)},
+                )
             elif row["item_type"] == "sheet":
                 sheet_data = payload.get("sheet_data")
                 if sheet_data is None or not isinstance(sheet_data, dict):
@@ -400,6 +452,13 @@ def register_routes(app: Flask) -> None:
                 conn.execute(
                     "UPDATE items SET content_json = ?, updated_at = ? WHERE id = ?",
                     (json.dumps(sheet_data), _now(), item_id),
+                )
+                _record_activity(
+                    conn,
+                    item_id=item_id,
+                    event_type="item.content_updated",
+                    actor_user_id=actor_user_id,
+                    data={"sheet_cell_count": len(sheet_data)},
                 )
             else:
                 return _json_error("Folders have no content", 400)
@@ -410,6 +469,7 @@ def register_routes(app: Flask) -> None:
     @handler
     def create_permission(item_id: str) -> Any:
         payload = request.get_json(silent=True) or {}
+        actor_user_id = _optional_str(payload, "actor_user_id")
         principal_type = _parse_principal_type(_require_str(payload, "principal_type"))
         principal_id = _optional_str(payload, "principal_id")
         role = _parse_role(_require_str(payload, "role"))
@@ -418,6 +478,13 @@ def register_routes(app: Flask) -> None:
             item = conn.execute("SELECT id FROM items WHERE id = ?", (item_id,)).fetchone()
             if not item:
                 return _json_error("Item not found", 404)
+            if actor_user_id:
+                actor = conn.execute(
+                    "SELECT id FROM users WHERE id = ?",
+                    (actor_user_id,),
+                ).fetchone()
+                if not actor:
+                    return _json_error("Actor not found", 404)
             if principal_type == "user":
                 if not principal_id:
                     raise ValueError("principal_id required")
@@ -452,6 +519,18 @@ def register_routes(app: Flask) -> None:
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (perm_id, item_id, principal_type, principal_id, role, created_at),
+            )
+            _record_activity(
+                conn,
+                item_id=item_id,
+                event_type="permission.created",
+                actor_user_id=actor_user_id,
+                data={
+                    "permission_id": perm_id,
+                    "principal_type": principal_type,
+                    "principal_id": principal_id,
+                    "role": role,
+                },
             )
         return jsonify(
             {
@@ -490,10 +569,27 @@ def register_routes(app: Flask) -> None:
     @app.delete("/items/<item_id>/permissions/<permission_id>")
     def delete_permission(item_id: str, permission_id: str) -> Any:
         with get_connection() as conn:
+            existing = conn.execute(
+                "SELECT * FROM permissions WHERE id = ? AND item_id = ?",
+                (permission_id, item_id),
+            ).fetchone()
             conn.execute(
                 "DELETE FROM permissions WHERE id = ? AND item_id = ?",
                 (permission_id, item_id),
             )
+            if existing:
+                _record_activity(
+                    conn,
+                    item_id=item_id,
+                    event_type="permission.deleted",
+                    actor_user_id=None,
+                    data={
+                        "permission_id": permission_id,
+                        "principal_type": existing["principal_type"],
+                        "principal_id": existing["principal_id"],
+                        "role": existing["role"],
+                    },
+                )
             rows = conn.execute(
                 "SELECT * FROM permissions WHERE item_id = ?",
                 (item_id,),
@@ -518,6 +614,7 @@ def register_routes(app: Flask) -> None:
     @handler
     def create_share_link(item_id: str) -> Any:
         payload = request.get_json(silent=True) or {}
+        actor_user_id = _optional_str(payload, "actor_user_id")
         role = _parse_role(_require_str(payload, "role"))
         expires_at = _optional_str(payload, "expires_at")
 
@@ -525,6 +622,13 @@ def register_routes(app: Flask) -> None:
             item = conn.execute("SELECT id FROM items WHERE id = ?", (item_id,)).fetchone()
             if not item:
                 return _json_error("Item not found", 404)
+            if actor_user_id:
+                actor = conn.execute(
+                    "SELECT id FROM users WHERE id = ?",
+                    (actor_user_id,),
+                ).fetchone()
+                if not actor:
+                    return _json_error("Actor not found", 404)
             link_id = str(uuid4())
             created_at = _now()
             token = secrets.token_urlsafe(16)
@@ -534,6 +638,13 @@ def register_routes(app: Flask) -> None:
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (link_id, item_id, token, role, expires_at, created_at),
+            )
+            _record_activity(
+                conn,
+                item_id=item_id,
+                event_type="share_link.created",
+                actor_user_id=actor_user_id,
+                data={"share_link_id": link_id, "role": role, "expires_at": expires_at},
             )
         return jsonify(
             {
@@ -572,10 +683,26 @@ def register_routes(app: Flask) -> None:
     @app.delete("/items/<item_id>/share-links/<link_id>")
     def delete_share_link(item_id: str, link_id: str) -> Any:
         with get_connection() as conn:
+            existing = conn.execute(
+                "SELECT * FROM share_links WHERE id = ? AND item_id = ?",
+                (link_id, item_id),
+            ).fetchone()
             conn.execute(
                 "DELETE FROM share_links WHERE id = ? AND item_id = ?",
                 (link_id, item_id),
             )
+            if existing:
+                _record_activity(
+                    conn,
+                    item_id=item_id,
+                    event_type="share_link.deleted",
+                    actor_user_id=None,
+                    data={
+                        "share_link_id": link_id,
+                        "role": existing["role"],
+                        "expires_at": existing["expires_at"],
+                    },
+                )
             rows = conn.execute(
                 "SELECT * FROM share_links WHERE item_id = ?",
                 (item_id,),
@@ -621,6 +748,13 @@ def register_routes(app: Flask) -> None:
                 VALUES (?, ?, ?, ?, ?)
                 """,
                 (comment_id, item_id, author_user_id, body, created_at),
+            )
+            _record_activity(
+                conn,
+                item_id=item_id,
+                event_type="comment.created",
+                actor_user_id=author_user_id,
+                data={"comment_id": comment_id, "body_length": len(body)},
             )
         return jsonify(
             {
@@ -668,3 +802,59 @@ def register_routes(app: Flask) -> None:
                 (like, like, like),
             ).fetchall()
         return jsonify({"items": [_row_to_item(row) for row in rows]})
+
+    @app.get("/items/<item_id>/activity")
+    @handler
+    def list_activity(item_id: str) -> Any:
+        limit_raw = request.args.get("limit", "50")
+        try:
+            limit = int(limit_raw)
+        except ValueError:
+            raise ValueError("limit must be an integer") from None
+        if limit < 1 or limit > 200:
+            raise ValueError("limit must be between 1 and 200")
+
+        before = request.args.get("before")
+        before = before.strip() if before else None
+
+        with get_connection() as conn:
+            item = conn.execute("SELECT id FROM items WHERE id = ?", (item_id,)).fetchone()
+            if not item:
+                return _json_error("Item not found", 404)
+
+            if before:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM activities
+                    WHERE item_id = ? AND created_at < ?
+                    ORDER BY created_at DESC, id DESC
+                    LIMIT ?
+                    """,
+                    (item_id, before, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM activities
+                    WHERE item_id = ?
+                    ORDER BY created_at DESC, id DESC
+                    LIMIT ?
+                    """,
+                    (item_id, limit),
+                ).fetchall()
+
+        events: list[dict[str, Any]] = []
+        for row in rows:
+            data_json = row["data_json"]
+            data = json.loads(data_json) if data_json else {}
+            events.append(
+                {
+                    "id": row["id"],
+                    "item_id": row["item_id"],
+                    "event_type": row["event_type"],
+                    "actor_user_id": row["actor_user_id"],
+                    "data": data,
+                    "created_at": row["created_at"],
+                }
+            )
+        return jsonify({"events": events})

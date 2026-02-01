@@ -44,6 +44,7 @@ make seed
 - `PUT /items/{item_id}/content`
 - `POST /items/{item_id}/permissions`
 - `POST /items/{item_id}/share-links`
+- `GET /items/{item_id}/activity` (simple audit/activity timeline)
 - `GET /snapshot`, `POST /snapshot` (export/import seeded demo org snapshots)
 - `GET /search?q=...`
 

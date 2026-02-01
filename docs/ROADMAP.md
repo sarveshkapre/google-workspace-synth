@@ -7,3 +7,4 @@
 ## Done
 - Snapshot export/import for deterministic demo resets.
 - Basic rate limiting and request size caps (local-safe defaults).
+- Per-item activity timeline.

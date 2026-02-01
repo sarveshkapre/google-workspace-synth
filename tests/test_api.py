@@ -111,3 +111,54 @@ def test_rate_limiting(tmp_path, monkeypatch):
     assert client.get("/health").status_code == 200
     assert client.get("/users").status_code == 200
     assert client.get("/users").status_code == 429
+
+
+def test_item_activity_timeline(tmp_path, monkeypatch):
+    client = _build_client(tmp_path / "activity.db", monkeypatch)
+
+    user = client.post(
+        "/users", json={"email": "act@example.com", "display_name": "Act User"}
+    ).get_json()
+    folder = client.post(
+        "/items",
+        json={"name": "Root", "item_type": "folder", "owner_user_id": user["id"]},
+    ).get_json()
+    doc = client.post(
+        "/items",
+        json={
+            "name": "Act Doc",
+            "item_type": "doc",
+            "parent_id": folder["id"],
+            "owner_user_id": user["id"],
+            "content_text": "Hello",
+        },
+    ).get_json()
+
+    client.put(
+        f"/items/{doc['id']}/content",
+        json={"content_text": "Updated", "actor_user_id": user["id"]},
+    )
+    client.post(
+        f"/items/{doc['id']}/permissions",
+        json={
+            "principal_type": "anyone",
+            "role": "viewer",
+            "actor_user_id": user["id"],
+        },
+    )
+    client.post(
+        f"/items/{doc['id']}/share-links",
+        json={"role": "viewer", "actor_user_id": user["id"]},
+    )
+    client.post(
+        f"/items/{doc['id']}/comments",
+        json={"author_user_id": user["id"], "body": "Looks good"},
+    )
+
+    timeline = client.get(f"/items/{doc['id']}/activity").get_json()
+    event_types = {e["event_type"] for e in timeline["events"]}
+    assert "item.created" in event_types
+    assert "item.content_updated" in event_types
+    assert "permission.created" in event_types
+    assert "share_link.created" in event_types
+    assert "comment.created" in event_types

@@ -20,9 +20,11 @@ _EXPORT_TABLES: tuple[str, ...] = (
     "permissions",
     "share_links",
     "comments",
+    "activities",
 )
 
 _IMPORT_DELETE_ORDER: tuple[str, ...] = (
+    "activities",
     "comments",
     "share_links",
     "permissions",
@@ -40,6 +42,7 @@ _IMPORT_INSERT_ORDER: tuple[str, ...] = (
     "permissions",
     "share_links",
     "comments",
+    "activities",
 )
 
 
