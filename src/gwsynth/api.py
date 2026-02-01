@@ -11,6 +11,7 @@ from flask import Flask, jsonify, request
 
 from .db import get_connection
 from .schemas import ItemType, PrincipalType, RoleType
+from .snapshot import export_snapshot, import_snapshot
 
 VALID_ITEM_TYPES: set[ItemType] = {"folder", "doc", "sheet"}
 VALID_ROLES: set[RoleType] = {"owner", "editor", "viewer"}
@@ -108,6 +109,25 @@ def register_routes(app: Flask) -> None:
                 "comments": comments,
             }
         )
+
+    @app.get("/snapshot")
+    def get_snapshot() -> Any:
+        with get_connection() as conn:
+            return jsonify(export_snapshot(conn))
+
+    @app.post("/snapshot")
+    @handler
+    def post_snapshot() -> Any:
+        mode = request.args.get("mode", "replace")
+        payload = request.get_json(silent=True)
+        if payload is None:
+            raise ValueError("JSON body required")
+        if not isinstance(payload, dict):
+            raise ValueError("Body must be an object")
+
+        with get_connection() as conn:
+            inserted = import_snapshot(conn, payload, mode=mode)
+            return jsonify({"status": "imported", "inserted": inserted})
 
     @app.post("/users")
     @handler

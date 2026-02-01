@@ -3,8 +3,8 @@ from __future__ import annotations
 import importlib
 
 
-def _build_client(tmp_path, monkeypatch):
-    monkeypatch.setenv("GWSYNTH_DB_PATH", str(tmp_path / "test.db"))
+def _build_client(db_path, monkeypatch):
+    monkeypatch.setenv("GWSYNTH_DB_PATH", str(db_path))
     import gwsynth.main
 
     importlib.reload(gwsynth.main)
@@ -14,7 +14,7 @@ def _build_client(tmp_path, monkeypatch):
 
 
 def test_end_to_end(tmp_path, monkeypatch):
-    client = _build_client(tmp_path, monkeypatch)
+    client = _build_client(tmp_path / "test.db", monkeypatch)
 
     user_resp = client.post(
         "/users", json={"email": "demo@example.com", "display_name": "Demo User"}
@@ -61,3 +61,35 @@ def test_end_to_end(tmp_path, monkeypatch):
 
     results = client.get("/search", query_string={"q": "Spec"}).get_json()
     assert results["items"]
+
+
+def test_snapshot_export_import(tmp_path, monkeypatch):
+    client1 = _build_client(tmp_path / "db1.db", monkeypatch)
+
+    user = client1.post(
+        "/users", json={"email": "snap@example.com", "display_name": "Snap User"}
+    ).get_json()
+    folder = client1.post(
+        "/items",
+        json={"name": "Root", "item_type": "folder", "owner_user_id": user["id"]},
+    ).get_json()
+    client1.post(
+        "/items",
+        json={
+            "name": "Snap Doc",
+            "item_type": "doc",
+            "parent_id": folder["id"],
+            "owner_user_id": user["id"],
+            "content_text": "Hello snapshot",
+        },
+    )
+
+    snapshot = client1.get("/snapshot").get_json()
+    assert snapshot["snapshot_version"] == 1
+
+    client2 = _build_client(tmp_path / "db2.db", monkeypatch)
+    imported = client2.post("/snapshot?mode=replace", json=snapshot).get_json()
+    assert imported["status"] == "imported"
+
+    users = client2.get("/users").get_json()
+    assert any(u["email"] == "snap@example.com" for u in users)
