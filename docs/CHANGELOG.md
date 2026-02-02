@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## Unreleased
+- Expand the seeder to generate enterprise-style orgs with multiple shared drives, personal drives, and richer activity history (new CLI flags for profiles, company naming, and timelines).
 - Add snapshot export/import (`GET /snapshot`, `POST /snapshot?mode=replace`) plus CLI (`python -m gwsynth.snapshot`).
 - Add default HTTP request body size cap via `GWSYNTH_MAX_REQUEST_BYTES`.
 - Add basic in-memory rate limiting via `GWSYNTH_RATE_LIMIT_*`.

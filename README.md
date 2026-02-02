@@ -29,6 +29,18 @@ Seed a demo org:
 make seed
 ```
 
+Enterprise-style seed (multiple shared drives, personal drives, and history):
+
+```bash
+PYTHONPATH=src ./.venv/bin/python -m gwsynth.seed \
+  --company-name "Northwind Labs" \
+  --domain "northwind.test" \
+  --shared-drives 3 \
+  --personal-docs 3 \
+  --personal-sheets 2 \
+  --history-days 120
+```
+
 ## Environment
 - `GWSYNTH_DB_PATH` (default: `./data/gwsynth.db`)
 - `GWSYNTH_SEED` (optional integer for deterministic seeding)
@@ -37,6 +49,16 @@ make seed
 - `GWSYNTH_RATE_LIMIT_RPM` (default: `600`) - requests per minute
 - `GWSYNTH_RATE_LIMIT_BURST` (default: `60`) - burst capacity
 - `GWSYNTH_API_KEY` (optional) - require `Authorization: Bearer ...` or `X-API-Key: ...` (except `/health`)
+
+## Seeder profiles
+The seeder can model a fictional enterprise org with multiple shared drives, personal drives, and a
+history timeline. Key flags:
+- `--profile` (`engineering` or `default`) controls shared drive + group naming.
+- `--company-name` and `--domain` align user emails and drive names to a fictional company.
+- `--shared-drives` creates multiple shared drive roots.
+- `--personal-drives` / `--no-personal-drives` toggles per-user My Drives.
+- `--personal-docs` / `--personal-sheets` set per-user document counts.
+- `--history-days` controls how far back synthetic activity timestamps go.
 
 ## API highlights
 - `POST /users`, `GET /users`
