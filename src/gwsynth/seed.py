@@ -4,6 +4,7 @@ import argparse
 import json
 import random
 import re
+import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import List
@@ -143,7 +144,7 @@ def _json_dumps(data: dict[str, str | list[str] | None]) -> str:
 
 
 def _record_activity(
-    conn,
+    conn: sqlite3.Connection,
     *,
     item_id: str,
     event_type: str,
@@ -333,6 +334,7 @@ def seed_database(
                 )
 
         personal_drive_rows: List[dict[str, str]] = []
+        skip_owner_permission_ids: set[str] = set()
         if personal_drives:
             for user in user_rows:
                 drive_id = str(uuid4())
@@ -371,9 +373,9 @@ def seed_database(
                         "id": drive_id,
                         "owner_user_id": user["id"],
                         "created_at": _isoformat(created_at),
-                        "skip_owner_permission": True,
                     }
                 )
+                skip_owner_permission_ids.add(drive_id)
                 _record_activity(
                     conn,
                     item_id=drive_id,
@@ -706,7 +708,7 @@ def seed_database(
             items + folders_rows + personal_items + personal_drive_rows + shared_drive_rows
         )
         for item in all_items:
-            if item.get("owner_user_id") and not item.get("skip_owner_permission"):
+            if item.get("owner_user_id") and item["id"] not in skip_owner_permission_ids:
                 permission_created = _later_timestamp(
                     rng,
                     datetime.fromisoformat(item["created_at"]),

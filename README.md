@@ -41,6 +41,33 @@ PYTHONPATH=src ./.venv/bin/python -m gwsynth.seed \
   --history-days 120
 ```
 
+## Real Workspace CLI (Drive/Docs)
+This repo includes an optional CLI that seeds a real Google Workspace tenant (Drive + Docs)
+using Entra as the identity source. It is separate from the local emulator API.
+
+Create a starter blueprint:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python -m gwsynth.real init-blueprint --out blueprint.yaml
+```
+
+Plan changes:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python -m gwsynth.real plan --blueprint blueprint.yaml
+```
+
+Apply changes (requires explicit `--yes`):
+
+```bash
+PYTHONPATH=src ./.venv/bin/python -m gwsynth.real apply --blueprint blueprint.yaml --yes
+```
+
+Required environment variables (see blueprint for full details):
+- `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`
+- `GOOGLE_SA_JSON`, `GOOGLE_ADMIN_SUBJECT`, `GOOGLE_CUSTOMER_ID`, `GOOGLE_DOMAIN`
+- `OPENAI_API_KEY` (optional, for GPT-generated content)
+
 ## Environment
 - `GWSYNTH_DB_PATH` (default: `./data/gwsynth.db`)
 - `GWSYNTH_SEED` (optional integer for deterministic seeding)
