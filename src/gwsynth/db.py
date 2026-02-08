@@ -90,6 +90,14 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
             CREATE INDEX IF NOT EXISTS idx_groups_name ON groups(name);
+            DELETE FROM group_members
+            WHERE rowid NOT IN (
+                SELECT MIN(rowid)
+                FROM group_members
+                GROUP BY group_id, user_id
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_group_members_unique
+            ON group_members(group_id, user_id);
             CREATE INDEX IF NOT EXISTS idx_items_parent ON items(parent_id);
             CREATE INDEX IF NOT EXISTS idx_items_owner ON items(owner_user_id);
             CREATE INDEX IF NOT EXISTS idx_permissions_item ON permissions(item_id);

@@ -227,6 +227,163 @@ def test_items_filtering(tmp_path, monkeypatch):
     assert all(item["parent_id"] == root["id"] for item in children["items"])
 
 
+def test_group_members_listing_and_idempotent_add(tmp_path, monkeypatch):
+    client = _build_client(tmp_path / "group_members.db", monkeypatch)
+
+    user1 = client.post(
+        "/users", json={"email": "gm1@example.com", "display_name": "GM One"}
+    ).get_json()
+    user2 = client.post(
+        "/users", json={"email": "gm2@example.com", "display_name": "GM Two"}
+    ).get_json()
+    group = client.post("/groups", json={"name": "Ops", "description": "Ops team"}).get_json()
+
+    assert (
+        client.post(f"/groups/{group['id']}/members", json={"user_id": user1["id"]}).status_code
+        == 201
+    )
+    assert (
+        client.post(f"/groups/{group['id']}/members", json={"user_id": user2["id"]}).status_code
+        == 201
+    )
+    assert (
+        client.post(f"/groups/{group['id']}/members", json={"user_id": user1["id"]}).status_code
+        == 201
+    )
+
+    members = client.get(f"/groups/{group['id']}/members").get_json()
+    assert len(members["members"]) == 2
+    assert {member["email"] for member in members["members"]} == {
+        "gm1@example.com",
+        "gm2@example.com",
+    }
+
+    page1 = client.get(
+        f"/groups/{group['id']}/members", query_string={"limit": 1}
+    ).get_json()
+    assert len(page1["members"]) == 1
+    assert page1["next_cursor"]
+
+    page2 = client.get(
+        f"/groups/{group['id']}/members",
+        query_string={"limit": 1, "cursor": page1["next_cursor"]},
+    ).get_json()
+    assert len(page2["members"]) == 1
+
+    assert client.get("/groups/missing/members").status_code == 404
+
+
+def test_create_item_validates_item_specific_fields(tmp_path, monkeypatch):
+    client = _build_client(tmp_path / "item_validation.db", monkeypatch)
+    user = client.post(
+        "/users", json={"email": "iv@example.com", "display_name": "Item Validator"}
+    ).get_json()
+
+    bad_doc = client.post(
+        "/items",
+        json={
+            "name": "Bad Doc",
+            "item_type": "doc",
+            "owner_user_id": user["id"],
+            "sheet_data": {"A1": "x"},
+        },
+    )
+    assert bad_doc.status_code == 400
+
+    bad_sheet = client.post(
+        "/items",
+        json={
+            "name": "Bad Sheet",
+            "item_type": "sheet",
+            "owner_user_id": user["id"],
+            "content_text": "not allowed",
+        },
+    )
+    assert bad_sheet.status_code == 400
+
+    bad_folder = client.post(
+        "/items",
+        json={
+            "name": "Bad Folder",
+            "item_type": "folder",
+            "owner_user_id": user["id"],
+            "content_text": "not allowed",
+        },
+    )
+    assert bad_folder.status_code == 400
+
+    bad_sheet_map = client.post(
+        "/items",
+        json={
+            "name": "Bad Sheet Map",
+            "item_type": "sheet",
+            "owner_user_id": user["id"],
+            "sheet_data": {"A1": 1},
+        },
+    )
+    assert bad_sheet_map.status_code == 400
+
+    sheet = client.post(
+        "/items",
+        json={
+            "name": "Good Sheet",
+            "item_type": "sheet",
+            "owner_user_id": user["id"],
+            "sheet_data": {"A1": "1"},
+        },
+    ).get_json()
+    bad_update = client.put(
+        f"/items/{sheet['id']}/content",
+        json={"sheet_data": {"A1": 1}},
+    )
+    assert bad_update.status_code == 400
+
+
+def test_permissions_validate_principal_id_rules(tmp_path, monkeypatch):
+    client = _build_client(tmp_path / "perm_rules.db", monkeypatch)
+    user = client.post(
+        "/users", json={"email": "perm@example.com", "display_name": "Perm User"}
+    ).get_json()
+    doc = client.post(
+        "/items",
+        json={
+            "name": "Perm Doc",
+            "item_type": "doc",
+            "owner_user_id": user["id"],
+            "content_text": "hello",
+        },
+    ).get_json()
+
+    anyone_bad = client.post(
+        f"/items/{doc['id']}/permissions",
+        json={"principal_type": "anyone", "principal_id": "unexpected", "role": "viewer"},
+    )
+    assert anyone_bad.status_code == 400
+
+    user_missing = client.post(
+        f"/items/{doc['id']}/permissions",
+        json={"principal_type": "user", "role": "viewer"},
+    )
+    assert user_missing.status_code == 400
+
+    user_ok = client.post(
+        f"/items/{doc['id']}/permissions",
+        json={"principal_type": "user", "principal_id": user["id"], "role": "viewer"},
+    )
+    assert user_ok.status_code == 201
+
+
+def test_item_scoped_subresource_routes_return_404_for_missing_item(tmp_path, monkeypatch):
+    client = _build_client(tmp_path / "missing_item.db", monkeypatch)
+    missing = "missing-item-id"
+
+    assert client.get(f"/items/{missing}/permissions").status_code == 404
+    assert client.delete(f"/items/{missing}/permissions/perm-id").status_code == 404
+    assert client.get(f"/items/{missing}/share-links").status_code == 404
+    assert client.delete(f"/items/{missing}/share-links/link-id").status_code == 404
+    assert client.get(f"/items/{missing}/comments").status_code == 404
+
+
 def test_api_key_auth(tmp_path, monkeypatch):
     client = _build_client(
         tmp_path / "auth.db",

@@ -76,6 +76,21 @@ def _row_to_item(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+def _parse_sheet_data(value: Any, *, required: bool) -> dict[str, str] | None:
+    if value is None:
+        if required:
+            raise ValueError("sheet_data required for sheets")
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("sheet_data must be an object")
+    parsed: dict[str, str] = {}
+    for cell, cell_value in value.items():
+        if not isinstance(cell, str) or not isinstance(cell_value, str):
+            raise ValueError("sheet_data must map string cells to string values")
+        parsed[cell] = cell_value
+    return parsed
+
+
 def _json_dumps(data: dict[str, Any]) -> str:
     return json.dumps(data, separators=(",", ":"), sort_keys=True)
 
@@ -397,16 +412,14 @@ def register_routes(app: Flask) -> None:
             user = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
             if not user:
                 return _json_error("User not found", 404)
-            existing = conn.execute(
-                "SELECT id FROM group_members WHERE group_id = ? AND user_id = ?",
-                (group_id, user_id),
-            ).fetchone()
-            if not existing:
+            try:
                 conn.execute(
                     "INSERT INTO group_members (id, group_id, user_id, created_at) "
                     "VALUES (?, ?, ?, ?)",
                     (str(uuid4()), group_id, user_id, _now()),
                 )
+            except sqlite3.IntegrityError:
+                pass
             return jsonify(
                 {
                     "id": group["id"],
@@ -415,6 +428,77 @@ def register_routes(app: Flask) -> None:
                     "created_at": group["created_at"],
                 }
             ), 201
+
+    @app.get("/groups/<group_id>/members")
+    def list_group_members(group_id: str) -> Any:
+        limit = parse_limit(request.args.get("limit"))
+        cursor_raw = request.args.get("cursor")
+        cursor = decode_cursor(cursor_raw) if cursor_raw else None
+        with get_connection() as conn:
+            group = conn.execute("SELECT id FROM groups WHERE id = ?", (group_id,)).fetchone()
+            if not group:
+                return _json_error("Group not found", 404)
+
+            if limit is None:
+                rows = conn.execute(
+                    """
+                    SELECT
+                        gm.id,
+                        gm.group_id,
+                        gm.user_id,
+                        gm.created_at,
+                        u.email,
+                        u.display_name
+                    FROM group_members gm
+                    JOIN users u ON u.id = gm.user_id
+                    WHERE gm.group_id = ?
+                    ORDER BY gm.created_at, gm.id
+                    """,
+                    (group_id,),
+                ).fetchall()
+                return jsonify(
+                    {
+                        "members": [
+                            {
+                                "id": row["id"],
+                                "group_id": row["group_id"],
+                                "user_id": row["user_id"],
+                                "email": row["email"],
+                                "display_name": row["display_name"],
+                                "created_at": row["created_at"],
+                            }
+                            for row in rows
+                        ]
+                    }
+                )
+
+            rows, next_cursor = _paginate_rows_asc(
+                conn,
+                table="group_members",
+                where=["group_id = ?"],
+                params=[group_id],
+                limit=limit,
+                cursor=cursor,
+            )
+            members: list[dict[str, Any]] = []
+            for row in rows:
+                user = conn.execute(
+                    "SELECT email, display_name FROM users WHERE id = ?",
+                    (row["user_id"],),
+                ).fetchone()
+                if not user:
+                    continue
+                members.append(
+                    {
+                        "id": row["id"],
+                        "group_id": row["group_id"],
+                        "user_id": row["user_id"],
+                        "email": user["email"],
+                        "display_name": user["display_name"],
+                        "created_at": row["created_at"],
+                    }
+                )
+            return jsonify({"members": members, "next_cursor": next_cursor})
 
     @app.delete("/groups/<group_id>/members/<user_id>")
     def remove_group_member(group_id: str, user_id: str) -> Any:
@@ -443,9 +527,24 @@ def register_routes(app: Flask) -> None:
         parent_id = _optional_str(payload, "parent_id")
         owner_user_id = _optional_str(payload, "owner_user_id")
         content_text = _optional_str(payload, "content_text")
-        sheet_data = payload.get("sheet_data")
-        if sheet_data is not None and not isinstance(sheet_data, dict):
-            raise ValueError("sheet_data must be an object")
+        sheet_data = _parse_sheet_data(payload.get("sheet_data"), required=False)
+
+        content_json = None
+        if item_type == "doc":
+            if sheet_data is not None:
+                raise ValueError("sheet_data is only allowed for sheets")
+            content_text = content_text or ""
+        elif item_type == "sheet":
+            if content_text is not None:
+                raise ValueError("content_text is only allowed for docs")
+            content_text = None
+            content_json = json.dumps(sheet_data or {})
+        else:
+            if content_text is not None:
+                raise ValueError("content_text is only allowed for docs")
+            if sheet_data is not None:
+                raise ValueError("sheet_data is only allowed for sheets")
+            content_text = None
 
         with get_connection() as conn:
             if parent_id:
@@ -464,12 +563,6 @@ def register_routes(app: Flask) -> None:
                 ).fetchone()
                 if not owner:
                     return _json_error("Owner not found", 404)
-
-            if item_type == "doc":
-                content_text = content_text or ""
-            content_json = None
-            if item_type == "sheet":
-                content_json = json.dumps(sheet_data or {})
 
             item_id = str(uuid4())
             created_at = _now()
@@ -590,9 +683,8 @@ def register_routes(app: Flask) -> None:
                     data={"content_text_length": len(content_text)},
                 )
             elif row["item_type"] == "sheet":
-                sheet_data = payload.get("sheet_data")
-                if sheet_data is None or not isinstance(sheet_data, dict):
-                    raise ValueError("sheet_data required for sheets")
+                sheet_data = _parse_sheet_data(payload.get("sheet_data"), required=True)
+                assert sheet_data is not None
                 conn.execute(
                     "UPDATE items SET content_json = ?, updated_at = ? WHERE id = ?",
                     (json.dumps(sheet_data), _now(), item_id),
@@ -616,6 +708,7 @@ def register_routes(app: Flask) -> None:
         actor_user_id = _optional_str(payload, "actor_user_id")
         principal_type = _parse_principal_type(_require_str(payload, "principal_type"))
         principal_id = _optional_str(payload, "principal_id")
+        principal_id = principal_id.strip() if principal_id is not None else None
         role = _parse_role(_require_str(payload, "role"))
 
         with get_connection() as conn:
@@ -629,18 +722,20 @@ def register_routes(app: Flask) -> None:
                 ).fetchone()
                 if not actor:
                     return _json_error("Actor not found", 404)
-            if principal_type == "user":
-                if not principal_id:
-                    raise ValueError("principal_id required")
+            if principal_type == "anyone":
+                if principal_id is not None:
+                    raise ValueError("principal_id must be omitted for anyone")
+                principal_id = None
+            elif not principal_id:
+                raise ValueError("principal_id required")
+            elif principal_type == "user":
                 user = conn.execute(
                     "SELECT id FROM users WHERE id = ?",
                     (principal_id,),
                 ).fetchone()
                 if not user:
                     return _json_error("User not found", 404)
-            if principal_type == "group":
-                if not principal_id:
-                    raise ValueError("principal_id required")
+            elif principal_type == "group":
                 group = conn.execute(
                     "SELECT id FROM groups WHERE id = ?",
                     (principal_id,),
@@ -693,6 +788,9 @@ def register_routes(app: Flask) -> None:
         cursor_raw = request.args.get("cursor")
         cursor = decode_cursor(cursor_raw) if cursor_raw else None
         with get_connection() as conn:
+            item = conn.execute("SELECT id FROM items WHERE id = ?", (item_id,)).fetchone()
+            if not item:
+                return _json_error("Item not found", 404)
             if limit is None:
                 rows = conn.execute(
                     "SELECT * FROM permissions WHERE item_id = ? ORDER BY created_at, id",
@@ -741,6 +839,9 @@ def register_routes(app: Flask) -> None:
     @app.delete("/items/<item_id>/permissions/<permission_id>")
     def delete_permission(item_id: str, permission_id: str) -> Any:
         with get_connection() as conn:
+            item = conn.execute("SELECT id FROM items WHERE id = ?", (item_id,)).fetchone()
+            if not item:
+                return _json_error("Item not found", 404)
             existing = conn.execute(
                 "SELECT * FROM permissions WHERE id = ? AND item_id = ?",
                 (permission_id, item_id),
@@ -835,6 +936,9 @@ def register_routes(app: Flask) -> None:
         cursor_raw = request.args.get("cursor")
         cursor = decode_cursor(cursor_raw) if cursor_raw else None
         with get_connection() as conn:
+            item = conn.execute("SELECT id FROM items WHERE id = ?", (item_id,)).fetchone()
+            if not item:
+                return _json_error("Item not found", 404)
             if limit is None:
                 rows = conn.execute(
                     "SELECT * FROM share_links WHERE item_id = ? ORDER BY created_at, id",
@@ -883,6 +987,9 @@ def register_routes(app: Flask) -> None:
     @app.delete("/items/<item_id>/share-links/<link_id>")
     def delete_share_link(item_id: str, link_id: str) -> Any:
         with get_connection() as conn:
+            item = conn.execute("SELECT id FROM items WHERE id = ?", (item_id,)).fetchone()
+            if not item:
+                return _json_error("Item not found", 404)
             existing = conn.execute(
                 "SELECT * FROM share_links WHERE id = ? AND item_id = ?",
                 (link_id, item_id),
@@ -972,6 +1079,9 @@ def register_routes(app: Flask) -> None:
         cursor_raw = request.args.get("cursor")
         cursor = decode_cursor(cursor_raw) if cursor_raw else None
         with get_connection() as conn:
+            item = conn.execute("SELECT id FROM items WHERE id = ?", (item_id,)).fetchone()
+            if not item:
+                return _json_error("Item not found", 404)
             if limit is None:
                 rows = conn.execute(
                     "SELECT * FROM comments WHERE item_id = ? ORDER BY created_at, id",
