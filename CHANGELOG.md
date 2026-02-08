@@ -3,6 +3,11 @@
 This file mirrors `docs/CHANGELOG.md` (kept in sync for repo-root discoverability).
 
 ## Unreleased
+- Add `GET /groups/<group_id>/members` endpoint with cursor pagination support.
+- Harden item creation/update validation by enforcing item-type-specific content fields.
+- Enforce permission principal invariants (`anyone` must omit `principal_id`; `user/group` require it).
+- Return `404` on item-scoped permissions/share-links/comments list/delete routes when item is missing.
+- Enforce unique group memberships via DB uniqueness on `(group_id, user_id)`.
 - Add snapshot export/import (`GET /snapshot`, `POST /snapshot?mode=replace`) plus CLI (`python -m gwsynth.snapshot`).
 - Add default HTTP request body size cap via `GWSYNTH_MAX_REQUEST_BYTES`.
 - Add basic in-memory rate limiting via `GWSYNTH_RATE_LIMIT_*`.

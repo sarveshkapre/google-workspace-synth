@@ -24,5 +24,5 @@ make check
 
 ## Next 3 improvements
 1. Improve snapshot portability/versioning.
-2. Add filtering helpers (by owner, type, etc.).
-3. Add export/import for selective tables.
+2. Add export/import for selective tables.
+3. Add integration smoke coverage for real Workspace plan/apply workflows.

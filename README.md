@@ -90,6 +90,7 @@ history timeline. Key flags:
 ## API highlights
 - `POST /users`, `GET /users`
 - `POST /groups`, `POST /groups/{group_id}/members`
+- `GET /groups/{group_id}/members`
 - `POST /items` (folder/doc/sheet)
 - `GET /items/{item_id}`
 - `PUT /items/{item_id}/content`
