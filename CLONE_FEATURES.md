@@ -8,14 +8,16 @@
 - GitHub Actions run triage (`gh run list`, `gh run view`)
 
 ## Candidate Features To Do
-- [ ] P1: Real-tenant CLI safety: add fully mocked smoke coverage for `gwsynth.real apply --yes` and `gwsynth.real destroy --yes` (content-only + all) with zero network calls (Score: impact high, effort medium, risk low, confidence high).
-- [ ] P2: Add `GET /` landing page (allowlisted when `GWSYNTH_API_KEY` is set) linking to `/docs`, `/openapi.json`, `/health`, `/stats`, and showing auth hint + key env var names (Score: impact medium, effort low, risk low, confidence high).
-- [ ] P2: Snapshot compatibility policy: document allowed schema evolution + explicit migration notes per snapshot version; add `docs/SNAPSHOTS.md` and link from `README.md` (Score: impact medium, effort low, risk low, confidence high).
-- [ ] P2: Demo guide: add `docs/DEMO_GUIDE.md` (seed profiles + curl snippets + typical flows), including a snapshot reset loop pattern (Score: impact medium, effort low, risk low, confidence medium-high).
 - [ ] P3: Swagger UI auth ergonomics: support providing API key to the interactive docs UI when `GWSYNTH_API_KEY` is set (Score: impact low-medium, effort medium, risk low, confidence medium).
 - [ ] P3: Rate limit proxy awareness: optional trust-proxy mode (use `X-Forwarded-For`) with tests and clear docs (Score: impact low-medium, effort medium, risk medium, confidence medium).
 
 ## Implemented
+- [x] 2026-02-09: Real-tenant CLI safety: added fully mocked smoke coverage for `gwsynth.real apply --yes` and `gwsynth.real destroy --yes` (content-only + all) with zero network calls.
+  - Evidence: `tests/test_real_cli_apply_destroy_smoke.py`.
+- [x] 2026-02-09: Added `GET /` landing page and allowlisted `/` + `/stats` when `GWSYNTH_API_KEY` is set.
+  - Evidence: `src/gwsynth/api.py`, `src/gwsynth/auth.py`, `tests/test_api.py::test_api_key_auth_allows_docs_and_openapi`.
+- [x] 2026-02-09: Documented snapshot compatibility policy + migration notes and added a demo guide (seed profiles, curl flows, snapshot reset loop).
+  - Evidence: `docs/SNAPSHOTS.md`, `docs/DEMO_GUIDE.md`, `README.md`.
 - [x] 2026-02-09: Updated CodeQL GitHub Action from v3 to v4 to avoid the announced v3 deprecation (Dec 2026).
   - Evidence: `.github/workflows/codeql.yml`.
 - [x] 2026-02-09: Snapshot large-export path: streaming JSON + gzip support for `GET /snapshot` and snapshot CLI `.gz` / `--gzip` / `--compact`.
@@ -54,6 +56,10 @@
   - WireMock exposes Swagger UI docs at `/__admin/docs` and supports OpenAPI / JSON schema driven APIs: https://wiremock.org/docs/openapi/ and https://wiremock.org/docs/api/
   - Stoplight Prism emphasizes OpenAPI-driven mocking + request validation and dynamic examples: https://github.com/stoplightio/prism
   - Mockoon highlights OpenAPI/Swagger import as a core workflow: https://github.com/mockoon/mockoon
+- Bounded market scan (untrusted): Drive/Docs "mock server" repos exist but are typically narrow; a local synthetic org API benefits from strong DX (docs/spec), deterministic fixtures, and safe reset workflows.
+  - GoogleDriveMock: https://github.com/nddipiazza/GoogleDriveMock
+  - google-drive-mock: https://github.com/pubkey/google-drive-mock
+  - googleDocsMock: https://github.com/maxiliarias/googleDocsMock
 
 ## Notes
 - This file is maintained by the autonomous clone loop.

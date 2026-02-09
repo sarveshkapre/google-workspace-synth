@@ -84,3 +84,39 @@ Structured, append-only memory for decisions and outcomes.
 - Confidence: High
 - Trust Label: measured
 - Follow-ups: None.
+
+- Date: 2026-02-09
+- Decision: Added fully mocked smoke coverage for `gwsynth.real apply --yes` and `gwsynth.real destroy --yes` (content-only + all).
+- Why: Keep the "real tenant" CLI testable without external creds and reduce regression risk for high-impact flows.
+- Evidence: `tests/test_real_cli_apply_destroy_smoke.py`; local `make check` pass.
+- Commit: b3b5b32
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: Consider adding a small dependency-injection seam so the CLI can run "mock mode" without monkeypatching.
+
+- Date: 2026-02-09
+- Decision: Added `GET /` landing page and allowlisted `/` + `/stats` when `GWSYNTH_API_KEY` is set.
+- Why: Improve first-run UX and avoid confusing `401` at the base URL during safer demo setups.
+- Evidence: `src/gwsynth/api.py`, `src/gwsynth/auth.py`, `tests/test_api.py`; local `make check` pass.
+- Commit: 0d78e4d
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: If API key auth is commonly enabled, consider letting Swagger UI send the key (without storing it).
+
+- Date: 2026-02-09
+- Decision: Added snapshot compatibility policy + demo guide docs and linked them from the README.
+- Why: Reduce user friction for demos, resets, and schema evolution by making the "happy path" explicit.
+- Evidence: `docs/SNAPSHOTS.md`, `docs/DEMO_GUIDE.md`, `README.md`.
+- Commit: f52ce76
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: None.
+
+- Date: 2026-02-09
+- Decision: Recorded verification evidence for this cycle.
+- Why: Keep maintenance work auditable and reproducible.
+- Evidence: `make check` (pass), `make smoke` (pass).
+- Commit: f52ce76
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: None.
