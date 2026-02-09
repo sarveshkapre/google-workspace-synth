@@ -12,6 +12,6 @@ Please open a GitHub issue with steps to reproduce. Avoid sharing real secrets.
 - SQLite file is local; protect it with filesystem permissions.
 
 ## Optional API key
-If you set `GWSYNTH_API_KEY`, all endpoints except `/health`, `/docs`, and `/openapi.json` require either:
+If you set `GWSYNTH_API_KEY`, all endpoints except `/`, `/health`, `/docs`, `/openapi.json`, and `/stats` require either:
 - `Authorization: Bearer <key>`
 - `X-API-Key: <key>`
