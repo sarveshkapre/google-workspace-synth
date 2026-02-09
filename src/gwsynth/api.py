@@ -10,6 +10,7 @@ from uuid import uuid4
 from flask import Flask, Response, jsonify, request, stream_with_context
 
 from .db import get_connection
+from .openapi import openapi_spec
 from .pagination import Cursor, decode_cursor, encode_cursor, parse_limit
 from .schemas import ItemType, PrincipalType, RoleType
 from .snapshot import export_snapshot, import_snapshot, iter_export_snapshot_json, iter_gzip_bytes
@@ -207,6 +208,37 @@ def register_routes(app: Flask) -> None:
     @app.get("/health")
     def health() -> Any:
         return jsonify({"status": "ok"})
+
+    @app.get("/openapi.json")
+    def openapi() -> Any:
+        return jsonify(openapi_spec())
+
+    @app.get("/docs")
+    def docs() -> Any:
+        html = """
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GWSynth API Docs</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <style>
+      body { margin: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+      window.onload = () => {
+        SwaggerUIBundle({ url: "/openapi.json", dom_id: "#swagger-ui" });
+      };
+    </script>
+  </body>
+</html>
+"""
+        return Response(html, mimetype="text/html")
 
     @app.get("/stats")
     def stats() -> Any:

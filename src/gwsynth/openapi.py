@@ -1,0 +1,735 @@
+from __future__ import annotations
+
+from typing import Any
+
+from . import __version__
+
+
+def openapi_spec() -> dict[str, Any]:
+    """
+    Hand-maintained OpenAPI spec for the local emulator API.
+
+    Keep this intentionally small and correct; it's a dev UX feature, not a full compatibility
+    layer.
+    """
+    return {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "Google Workspace Synth API",
+            "version": __version__,
+            "description": (
+                "Local-first synthetic Google Workspace (Drive/Docs/Sheets) emulator.\n\n"
+                "Auth note: if `GWSYNTH_API_KEY` is set, most endpoints require either "
+                "`Authorization: Bearer <key>` or `X-API-Key: <key>`."
+            ),
+        },
+        "paths": {
+            "/health": {
+                "get": {
+                    "summary": "Health check",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {"application/json": {"schema": {"type": "object"}}},
+                        }
+                    },
+                }
+            },
+            "/stats": {
+                "get": {
+                    "summary": "Counts of core resources",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {"application/json": {"schema": {"type": "object"}}},
+                        }
+                    },
+                }
+            },
+            "/snapshot": {
+                "get": {
+                    "summary": "Export a DB snapshot",
+                    "parameters": [
+                        {
+                            "name": "tables",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "string"},
+                            "description": "Comma-separated subset of tables.",
+                        },
+                        {
+                            "name": "gzip",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "string"},
+                            "description": "If truthy, stream a gzip-compressed JSON snapshot.",
+                        },
+                        {
+                            "name": "stream",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "string"},
+                            "description": "If truthy, stream compact JSON (no indentation).",
+                        },
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Snapshot document",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Snapshot"}
+                                }
+                            },
+                        }
+                    },
+                },
+                "post": {
+                    "summary": "Import a DB snapshot",
+                    "parameters": [
+                        {
+                            "name": "mode",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "string", "enum": ["replace", "replace_tables"]},
+                        },
+                        {
+                            "name": "tables",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "string"},
+                            "description": "Comma-separated subset of tables to import.",
+                        },
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/Snapshot"}
+                            }
+                        },
+                    },
+                    "responses": {
+                        "200": {"description": "Imported"},
+                        "400": {
+                            "description": "Invalid snapshot",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
+                    },
+                },
+            },
+            "/users": {
+                "get": {
+                    "summary": "List users",
+                    "parameters": [
+                        {"$ref": "#/components/parameters/Limit"},
+                        {"$ref": "#/components/parameters/Cursor"},
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Users",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"oneOf": [{"type": "array"}, {"type": "object"}]}
+                                }
+                            },
+                        }
+                    },
+                },
+                "post": {
+                    "summary": "Create user",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/UserIn"}
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/User"}
+                                }
+                            },
+                        },
+                        "409": {
+                            "description": "Duplicate email",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
+                    },
+                },
+            },
+            "/users/{user_id}": {
+                "get": {
+                    "summary": "Get user",
+                    "parameters": [
+                        {
+                            "name": "user_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "User",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/User"}
+                                }
+                            },
+                        },
+                        "404": {
+                            "description": "Not found",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
+                    },
+                }
+            },
+            "/groups": {
+                "get": {
+                    "summary": "List groups",
+                    "parameters": [
+                        {"$ref": "#/components/parameters/Limit"},
+                        {"$ref": "#/components/parameters/Cursor"},
+                    ],
+                    "responses": {"200": {"description": "Groups"}},
+                },
+                "post": {
+                    "summary": "Create group",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/GroupIn"}
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "Created"}},
+                },
+            },
+            "/groups/{group_id}": {
+                "get": {
+                    "summary": "Get group",
+                    "parameters": [
+                        {
+                            "name": "group_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        }
+                    ],
+                    "responses": {
+                        "200": {"description": "Group"},
+                        "404": {"description": "Not found"},
+                    },
+                }
+            },
+            "/groups/{group_id}/members": {
+                "get": {
+                    "summary": "List group members",
+                    "parameters": [
+                        {
+                            "name": "group_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {"$ref": "#/components/parameters/Limit"},
+                        {"$ref": "#/components/parameters/Cursor"},
+                    ],
+                    "responses": {
+                        "200": {"description": "Members"},
+                        "404": {"description": "Not found"},
+                    },
+                },
+                "post": {
+                    "summary": "Add group member (idempotent)",
+                    "parameters": [
+                        {
+                            "name": "group_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        }
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/GroupMemberIn"},
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {"description": "Added"},
+                        "404": {"description": "Not found"},
+                    },
+                },
+            },
+            "/groups/{group_id}/members/{user_id}": {
+                "delete": {
+                    "summary": "Remove group member",
+                    "parameters": [
+                        {
+                            "name": "group_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {
+                            "name": "user_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                    ],
+                    "responses": {
+                        "200": {"description": "Removed"},
+                        "404": {"description": "Not found"},
+                    },
+                }
+            },
+            "/items": {
+                "get": {
+                    "summary": "List items",
+                    "parameters": [
+                        {
+                            "name": "parent_id",
+                            "in": "query",
+                            "schema": {"type": "string"},
+                        },
+                        {
+                            "name": "owner_user_id",
+                            "in": "query",
+                            "schema": {"type": "string"},
+                        },
+                        {
+                            "name": "item_type",
+                            "in": "query",
+                            "schema": {"type": "string", "enum": ["folder", "doc", "sheet"]},
+                        },
+                        {"$ref": "#/components/parameters/Limit"},
+                        {"$ref": "#/components/parameters/Cursor"},
+                    ],
+                    "responses": {"200": {"description": "Items"}},
+                },
+                "post": {
+                    "summary": "Create item",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ItemIn"}
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {"description": "Created"},
+                        "400": {"description": "Validation error"},
+                        "404": {"description": "Not found"},
+                    },
+                },
+            },
+            "/items/{item_id}": {
+                "get": {
+                    "summary": "Get item",
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        }
+                    ],
+                    "responses": {
+                        "200": {"description": "Item"},
+                        "404": {"description": "Not found"},
+                    },
+                }
+            },
+            "/items/{item_id}/content": {
+                "put": {
+                    "summary": "Update item content (doc/sheet only)",
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        }
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ItemContentUpdateIn"},
+                            }
+                        },
+                    },
+                    "responses": {
+                        "200": {"description": "Updated"},
+                        "400": {"description": "Invalid"},
+                    },
+                }
+            },
+            "/items/{item_id}/permissions": {
+                "get": {
+                    "summary": "List permissions",
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {"$ref": "#/components/parameters/Limit"},
+                        {"$ref": "#/components/parameters/Cursor"},
+                    ],
+                    "responses": {
+                        "200": {"description": "Permissions"},
+                        "404": {"description": "Not found"},
+                    },
+                },
+                "post": {
+                    "summary": "Create permission",
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        }
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/PermissionIn"},
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {"description": "Created"},
+                        "404": {"description": "Not found"},
+                    },
+                },
+            },
+            "/items/{item_id}/permissions/{permission_id}": {
+                "delete": {
+                    "summary": "Delete permission",
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {
+                            "name": "permission_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                    ],
+                    "responses": {
+                        "200": {"description": "Deleted"},
+                        "404": {"description": "Not found"},
+                    },
+                }
+            },
+            "/items/{item_id}/share-links": {
+                "get": {
+                    "summary": "List share links",
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {"$ref": "#/components/parameters/Limit"},
+                        {"$ref": "#/components/parameters/Cursor"},
+                    ],
+                    "responses": {
+                        "200": {"description": "Share links"},
+                        "404": {"description": "Not found"},
+                    },
+                },
+                "post": {
+                    "summary": "Create share link",
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        }
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ShareLinkIn"},
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {"description": "Created"},
+                        "404": {"description": "Not found"},
+                    },
+                },
+            },
+            "/items/{item_id}/share-links/{link_id}": {
+                "delete": {
+                    "summary": "Delete share link",
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {
+                            "name": "link_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                    ],
+                    "responses": {
+                        "200": {"description": "Deleted"},
+                        "404": {"description": "Not found"},
+                    },
+                }
+            },
+            "/items/{item_id}/comments": {
+                "get": {
+                    "summary": "List comments",
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {"$ref": "#/components/parameters/Limit"},
+                        {"$ref": "#/components/parameters/Cursor"},
+                    ],
+                    "responses": {
+                        "200": {"description": "Comments"},
+                        "404": {"description": "Not found"},
+                    },
+                },
+                "post": {
+                    "summary": "Create comment",
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        }
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/CommentIn"},
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {"description": "Created"},
+                        "404": {"description": "Not found"},
+                    },
+                },
+            },
+            "/items/{item_id}/activity": {
+                "get": {
+                    "summary": "List item activity (descending by created_at)",
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {"$ref": "#/components/parameters/Limit"},
+                        {"$ref": "#/components/parameters/Cursor"},
+                        {
+                            "name": "before",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "string"},
+                            "description": "An ISO timestamp to page backwards from.",
+                        },
+                    ],
+                    "responses": {
+                        "200": {"description": "Events"},
+                        "404": {"description": "Not found"},
+                    },
+                }
+            },
+            "/search": {
+                "get": {
+                    "summary": "Search items by name/content",
+                    "parameters": [
+                        {
+                            "name": "q",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {"$ref": "#/components/parameters/Limit"},
+                        {"$ref": "#/components/parameters/Cursor"},
+                    ],
+                    "responses": {"200": {"description": "Items"}},
+                }
+            },
+        },
+        "components": {
+            "parameters": {
+                "Limit": {
+                    "name": "limit",
+                    "in": "query",
+                    "required": False,
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 200},
+                },
+                "Cursor": {
+                    "name": "cursor",
+                    "in": "query",
+                    "required": False,
+                    "schema": {"type": "string"},
+                },
+            },
+            "schemas": {
+                "Error": {
+                    "type": "object",
+                    "properties": {"error": {"type": "string"}},
+                    "required": ["error"],
+                },
+                "UserIn": {
+                    "type": "object",
+                    "properties": {
+                        "email": {"type": "string"},
+                        "display_name": {"type": "string"},
+                    },
+                    "required": ["email", "display_name"],
+                },
+                "User": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/UserIn"},
+                        {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "created_at": {"type": "string"},
+                            },
+                            "required": ["id", "created_at"],
+                        },
+                    ]
+                },
+                "GroupIn": {
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}, "description": {"type": "string"}},
+                    "required": ["name"],
+                },
+                "GroupMemberIn": {
+                    "type": "object",
+                    "properties": {"user_id": {"type": "string"}},
+                    "required": ["user_id"],
+                },
+                "ItemIn": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "item_type": {"type": "string", "enum": ["folder", "doc", "sheet"]},
+                        "parent_id": {"type": "string", "nullable": True},
+                        "owner_user_id": {"type": "string", "nullable": True},
+                        "content_text": {"type": "string", "nullable": True},
+                        "sheet_data": {
+                            "type": "object",
+                            "additionalProperties": {"type": "string"},
+                            "nullable": True,
+                        },
+                    },
+                    "required": ["name", "item_type"],
+                },
+                "ItemContentUpdateIn": {
+                    "type": "object",
+                    "properties": {
+                        "actor_user_id": {"type": "string", "nullable": True},
+                        "content_text": {"type": "string", "nullable": True},
+                        "sheet_data": {
+                            "type": "object",
+                            "additionalProperties": {"type": "string"},
+                            "nullable": True,
+                        },
+                    },
+                },
+                "PermissionIn": {
+                    "type": "object",
+                    "properties": {
+                        "actor_user_id": {"type": "string", "nullable": True},
+                        "principal_type": {"type": "string", "enum": ["user", "group", "anyone"]},
+                        "principal_id": {"type": "string", "nullable": True},
+                        "role": {"type": "string", "enum": ["owner", "editor", "viewer"]},
+                    },
+                    "required": ["principal_type", "role"],
+                },
+                "ShareLinkIn": {
+                    "type": "object",
+                    "properties": {
+                        "actor_user_id": {"type": "string", "nullable": True},
+                        "role": {"type": "string", "enum": ["owner", "editor", "viewer"]},
+                        "expires_at": {"type": "string", "nullable": True},
+                    },
+                    "required": ["role"],
+                },
+                "CommentIn": {
+                    "type": "object",
+                    "properties": {
+                        "author_user_id": {"type": "string"},
+                        "body": {"type": "string"},
+                    },
+                    "required": ["author_user_id", "body"],
+                },
+                "Snapshot": {
+                    "type": "object",
+                    "properties": {
+                        "snapshot_version": {"type": "integer"},
+                        "app_version": {"type": "string"},
+                        "exported_at": {"type": "string"},
+                        "exported_tables": {"type": "array", "items": {"type": "string"}},
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                        },
+                        "tables": {
+                            "type": "object",
+                            "additionalProperties": {"type": "array", "items": {"type": "object"}},
+                        },
+                    },
+                    "required": ["snapshot_version", "tables"],
+                },
+            },
+        },
+    }

@@ -22,6 +22,8 @@ make dev
 
 Then open:
 - Health: http://localhost:8000/health
+- API docs (Swagger UI): http://localhost:8000/docs
+- OpenAPI spec: http://localhost:8000/openapi.json
 
 Seed a demo org:
 

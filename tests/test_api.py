@@ -153,6 +153,33 @@ def test_snapshot_gzip_stream(tmp_path, monkeypatch):
     assert "tables" in payload
 
 
+def test_openapi_and_docs_endpoints(tmp_path, monkeypatch):
+    client = _build_client(tmp_path / "docs.db", monkeypatch)
+
+    spec = client.get("/openapi.json").get_json()
+    assert spec["openapi"].startswith("3.")
+    assert spec["info"]["title"]
+
+    docs = client.get("/docs")
+    assert docs.status_code == 200
+    assert "text/html" in (docs.content_type or "")
+
+
+def test_api_key_auth_allows_docs_and_openapi(tmp_path, monkeypatch):
+    client = _build_client(
+        tmp_path / "auth.db",
+        monkeypatch,
+        env={"GWSYNTH_API_KEY": "secret"},
+    )
+
+    assert client.get("/health").status_code == 200
+    assert client.get("/docs").status_code == 200
+    assert client.get("/openapi.json").status_code == 200
+
+    assert client.get("/users").status_code == 401
+    assert client.get("/users", headers={"X-API-Key": "secret"}).status_code == 200
+
+
 def test_rate_limiting(tmp_path, monkeypatch):
     client = _build_client(
         tmp_path / "ratelimit.db",

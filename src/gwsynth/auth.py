@@ -9,7 +9,7 @@ def install_api_key_auth(app: Flask, api_key: str | None) -> None:
     if not api_key:
         return
 
-    allow_paths = {"/health"}
+    allow_paths = {"/health", "/docs", "/openapi.json"}
 
     @app.before_request
     def _require_api_key() -> Response | None:
@@ -29,4 +29,3 @@ def install_api_key_auth(app: Flask, api_key: str | None) -> None:
             return response
 
         return None
-
