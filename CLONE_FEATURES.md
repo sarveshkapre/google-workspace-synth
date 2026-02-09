@@ -36,7 +36,7 @@
   - Evidence: `docs/PLAN.md`, `docs/ROADMAP.md`, `docs/PROJECT.md`, `CHANGELOG.md`, `docs/CHANGELOG.md`.
 
 ## Insights
-- 2026-02-02 Actions failures were GitHub-hosted runner acquisition issues ("job was not acquired by Runner"); latest `main` runs are green (`ci`, `codeql`, `gitleaks` on commit `3ba9fa7`).
+- 2026-02-02 Actions failures were GitHub-hosted runner acquisition issues ("job was not acquired by Runner"); latest `main` runs are green (`ci`, `codeql`, `gitleaks` on commit `3dcc0d8`).
 - Snapshot `mode=replace_tables` intentionally runs with foreign keys enabled: partial restores may cascade-delete dependent rows (safer than leaving DB inconsistent).
 - Group membership deduplication needed DB-level enforcement for race safety, not only application-level existence checks.
 - API consumer ergonomics improved by returning explicit `404` for missing item scopes instead of silent empty lists.
@@ -45,4 +45,4 @@
 - This file is maintained by the autonomous clone loop.
 - Verification evidence for this cycle:
   - `make check` (pass)
-  - Local smoke flow: start app + `curl /health`, create user/group, add/list group members (pass)
+  - Local smoke flow: start API + `curl /health`, `curl /snapshot?tables=users,items` (pass)
