@@ -6,6 +6,11 @@ from typing import Any, Iterable
 DOC_MIME_TYPE = "application/vnd.google-apps.document"
 FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 
+def escape_drive_query_string(value: str) -> str:
+    # Drive v3 query syntax uses single-quoted string literals.
+    # Escape backslashes first to keep escapes stable, then single quotes.
+    return value.replace("\\", "\\\\").replace("'", "\\'")
+
 
 @dataclass
 class DriveSyncResult:
@@ -299,10 +304,15 @@ def _permission_exists(
 
 
 def _app_properties_query(app_properties: dict[str, str]) -> str:
-    parts = [
-        f"appProperties has {{ key='{key}' and value='{value}' }}"
-        for key, value in app_properties.items()
-    ]
+    parts = []
+    for key in sorted(app_properties.keys()):
+        value = app_properties[key]
+        parts.append(
+            "appProperties has { "
+            f"key='{escape_drive_query_string(key)}' "
+            f"and value='{escape_drive_query_string(value)}' "
+            "}"
+        )
     return " and ".join(parts)
 
 
