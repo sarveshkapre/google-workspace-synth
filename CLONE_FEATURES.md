@@ -8,13 +8,20 @@
 - GitHub Actions run triage (`gh run list`, `gh run view`)
 
 ## Candidate Features To Do
-- [ ] P1: Snapshot v2 portability/versioning: include schema metadata + `gwsynth` version; support v1->v2 import compatibility with clear errors.
-- [ ] P1: Selective snapshot export/import: `tables=...` filter on API + CLI, plus a safe `mode=replace_tables` for partial restores.
-- [ ] P2: Harden Google Drive appProperties query building: escape quotes and produce deterministic query ordering.
-- [ ] P2: Add minimal `gwsynth.real plan` CLI smoke coverage using mocked clients (no external network calls).
-- [ ] P3: Add repo-root `AGENTS.md`, `PROJECT_MEMORY.md`, `INCIDENTS.md` (stable operating contract + structured memory/incident templates).
+- [ ] P1: Add snapshot compression and/or streaming export for very large demo datasets.
+- [ ] P1: Add richer snapshot compatibility guarantees (optional/nullable column fill policy + explicit migration notes).
+- [ ] P2: Add mocked smoke coverage for `gwsynth.real apply --yes` and `destroy` flows (no network).
+- [ ] P2: Add API surface documentation: OpenAPI spec + local docs page for endpoints and payloads.
 
 ## Implemented
+- [x] 2026-02-09: Snapshot v2 metadata + schema checks; added `tables=...` filtering and `mode=replace_tables` (API + CLI).
+  - Evidence: `src/gwsynth/snapshot.py`, `src/gwsynth/api.py`, `tests/test_api.py::test_snapshot_tables_filter_and_replace_tables_mode`, `README.md`.
+- [x] 2026-02-09: Hardened Google Drive appProperties query building (escape quotes/backslashes; deterministic ordering).
+  - Evidence: `src/gwsynth/real/google_drive.py`, `tests/test_real_drive_props.py`.
+- [x] 2026-02-09: Added mocked `gwsynth.real plan` CLI smoke test (no external network calls) and removed `datetime.utcnow()` usage.
+  - Evidence: `tests/test_real_cli_plan_smoke.py`, `src/gwsynth/real/cli.py`.
+- [x] 2026-02-09: Added repo-root maintainer docs: `AGENTS.md`, `PROJECT_MEMORY.md`, `INCIDENTS.md`.
+  - Evidence: `AGENTS.md`, `PROJECT_MEMORY.md`, `INCIDENTS.md`.
 - [x] 2026-02-08: Added `GET /groups/<group_id>/members` with optional cursor pagination.
   - Evidence: `src/gwsynth/api.py`, `tests/test_api.py::test_group_members_listing_and_idempotent_add`, `README.md`.
 - [x] 2026-02-08: Hardened `POST /items` and sheet content update validation to enforce item-type-specific fields and `sheet_data` shape.
@@ -30,6 +37,7 @@
 
 ## Insights
 - 2026-02-02 Actions failures were GitHub-hosted runner acquisition issues ("job was not acquired by Runner"); latest `main` runs are green (`ci`, `codeql`, `gitleaks` on commit `3ba9fa7`).
+- Snapshot `mode=replace_tables` intentionally runs with foreign keys enabled: partial restores may cascade-delete dependent rows (safer than leaving DB inconsistent).
 - Group membership deduplication needed DB-level enforcement for race safety, not only application-level existence checks.
 - API consumer ergonomics improved by returning explicit `404` for missing item scopes instead of silent empty lists.
 
