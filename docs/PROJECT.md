@@ -23,6 +23,6 @@ make check
 - `GWSYNTH_API_KEY` (optional) - require `Authorization: Bearer ...` or `X-API-Key: ...` (except `/health`)
 
 ## Next 3 improvements
-1. Improve snapshot portability/versioning.
-2. Add export/import for selective tables.
-3. Add integration smoke coverage for real Workspace plan/apply workflows.
+1. Add snapshot compression and/or streaming export for very large demo datasets.
+2. Add integration smoke coverage for real Workspace `apply`/`destroy` workflows (mocked; no network).
+3. Add API surface documentation (OpenAPI + minimal local docs page).

@@ -35,4 +35,5 @@ See `docs/PROJECT.md` for environment variables and workflow notes.
 - 2026-02-01: Optional API key auth via `GWSYNTH_API_KEY`.
 
 ## Next
-- Improve snapshot portability/versioning.
+- Add snapshot compression and/or streaming export for very large demo datasets.
+- Add integration smoke coverage for real Workspace `apply`/`destroy` workflows (mocked; no network).
