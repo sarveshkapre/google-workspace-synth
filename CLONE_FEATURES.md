@@ -8,10 +8,12 @@
 - GitHub Actions run triage (`gh run list`, `gh run view`)
 
 ## Candidate Features To Do
-- [ ] P2: Real-tenant CLI safety: add fully mocked smoke coverage for `gwsynth.real destroy` and (if feasible) `apply --yes` with no network calls (Score: impact medium, effort medium-high, risk medium, confidence medium).
-- [ ] P2: Snapshot compatibility: define a nullable/optional column fill policy and record explicit migration notes per snapshot version (Score: impact medium, effort medium, risk low, confidence medium).
-- [ ] P3: Add `GET /` landing page (or extend `/health`) with links to `/docs`, `/openapi.json`, and key env vars for demo ergonomics (Score: impact low-medium, effort low, risk low, confidence high).
-- [ ] P3: Add a small "demo guide" page (seed profiles + curl snippets + typical flows) (Score: impact medium, effort low-medium, risk low, confidence medium-high).
+- [ ] P1: Real-tenant CLI safety: add fully mocked smoke coverage for `gwsynth.real apply --yes` and `gwsynth.real destroy --yes` (content-only + all) with zero network calls (Score: impact high, effort medium, risk low, confidence high).
+- [ ] P2: Add `GET /` landing page (allowlisted when `GWSYNTH_API_KEY` is set) linking to `/docs`, `/openapi.json`, `/health`, `/stats`, and showing auth hint + key env var names (Score: impact medium, effort low, risk low, confidence high).
+- [ ] P2: Snapshot compatibility policy: document allowed schema evolution + explicit migration notes per snapshot version; add `docs/SNAPSHOTS.md` and link from `README.md` (Score: impact medium, effort low, risk low, confidence high).
+- [ ] P2: Demo guide: add `docs/DEMO_GUIDE.md` (seed profiles + curl snippets + typical flows), including a snapshot reset loop pattern (Score: impact medium, effort low, risk low, confidence medium-high).
+- [ ] P3: Swagger UI auth ergonomics: support providing API key to the interactive docs UI when `GWSYNTH_API_KEY` is set (Score: impact low-medium, effort medium, risk low, confidence medium).
+- [ ] P3: Rate limit proxy awareness: optional trust-proxy mode (use `X-Forwarded-For`) with tests and clear docs (Score: impact low-medium, effort medium, risk medium, confidence medium).
 
 ## Implemented
 - [x] 2026-02-09: Updated CodeQL GitHub Action from v3 to v4 to avoid the announced v3 deprecation (Dec 2026).
