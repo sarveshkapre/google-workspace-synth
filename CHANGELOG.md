@@ -9,6 +9,7 @@ This file mirrors `docs/CHANGELOG.md` (kept in sync for repo-root discoverabilit
 - Return `404` on item-scoped permissions/share-links/comments list/delete routes when item is missing.
 - Enforce unique group memberships via DB uniqueness on `(group_id, user_id)`.
 - Add snapshot export/import (`GET /snapshot`, `POST /snapshot?mode=replace`) plus CLI (`python -m gwsynth.snapshot`).
+- Snapshot v2 metadata + schema checks; add `tables=...` filtering and `mode=replace_tables` for partial restores.
 - Add default HTTP request body size cap via `GWSYNTH_MAX_REQUEST_BYTES`.
 - Add basic in-memory rate limiting via `GWSYNTH_RATE_LIMIT_*`.
 - Add per-item activity timeline (`GET /items/<item_id>/activity`).

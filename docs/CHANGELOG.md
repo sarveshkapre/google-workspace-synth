@@ -9,6 +9,7 @@
 - Add `gwsynth.real` CLI for provisioning a real Google Workspace Drive/Docs tenant from Entra with deterministic blueprint seeding.
 - Expand the seeder to generate enterprise-style orgs with multiple shared drives, personal drives, and richer activity history (new CLI flags for profiles, company naming, and timelines).
 - Add snapshot export/import (`GET /snapshot`, `POST /snapshot?mode=replace`) plus CLI (`python -m gwsynth.snapshot`).
+- Snapshot v2 metadata + schema checks; add `tables=...` filtering and `mode=replace_tables` for partial restores.
 - Add default HTTP request body size cap via `GWSYNTH_MAX_REQUEST_BYTES`.
 - Add basic in-memory rate limiting via `GWSYNTH_RATE_LIMIT_*`.
 - Add per-item activity timeline (`GET /items/<item_id>/activity`).

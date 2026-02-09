@@ -232,13 +232,21 @@ def register_routes(app: Flask) -> None:
 
     @app.get("/snapshot")
     def get_snapshot() -> Any:
+        tables_param = request.args.get("tables")
         with get_connection() as conn:
-            return jsonify(export_snapshot(conn))
+            tables = None
+            if tables_param is not None and tables_param.strip():
+                tables = [t.strip() for t in tables_param.split(",") if t.strip()]
+            return jsonify(export_snapshot(conn, tables=tables))
 
     @app.post("/snapshot")
     @handler
     def post_snapshot() -> Any:
         mode = request.args.get("mode", "replace")
+        tables_param = request.args.get("tables")
+        tables = None
+        if tables_param is not None and tables_param.strip():
+            tables = [t.strip() for t in tables_param.split(",") if t.strip()]
         payload = request.get_json(silent=True)
         if payload is None:
             raise ValueError("JSON body required")
@@ -246,7 +254,7 @@ def register_routes(app: Flask) -> None:
             raise ValueError("Body must be an object")
 
         with get_connection() as conn:
-            inserted = import_snapshot(conn, payload, mode=mode)
+            inserted = import_snapshot(conn, payload, mode=mode, tables=tables)
             return jsonify({"status": "imported", "inserted": inserted})
 
     @app.post("/users")

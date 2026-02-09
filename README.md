@@ -118,6 +118,12 @@ Export a full org snapshot via API:
 curl -s http://localhost:8000/snapshot > snapshot.json
 ```
 
+Export only selected tables (useful for large datasets):
+
+```bash
+curl -s "http://localhost:8000/snapshot?tables=users,items" > snapshot.json
+```
+
 Import (replaces current DB contents):
 
 ```bash
@@ -126,11 +132,21 @@ curl -s -X POST "http://localhost:8000/snapshot?mode=replace" \\
   --data-binary @snapshot.json
 ```
 
+Import only selected tables:
+
+```bash
+curl -s -X POST "http://localhost:8000/snapshot?mode=replace_tables&tables=users,items" \\
+  -H "content-type: application/json" \\
+  --data-binary @snapshot.json
+```
+
 Or export/import directly from the SQLite DB:
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot export --out snapshot.json
+PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot export --out subset.json --tables users,items
 PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot import --in snapshot.json --mode replace
+PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot import --in subset.json --mode replace_tables --tables users,items
 ```
 
 ## Docker

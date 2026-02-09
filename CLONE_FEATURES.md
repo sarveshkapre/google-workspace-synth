@@ -8,10 +8,11 @@
 - GitHub Actions run triage (`gh run list`, `gh run view`)
 
 ## Candidate Features To Do
-- [ ] P1: Improve snapshot portability/versioning guarantees (schema evolution + compatibility checks).
-- [ ] P1: Add selective snapshot export/import modes for large demo datasets.
-- [ ] P1: Add real Workspace integration smoke tests using mocked Google/Entra/OpenAI clients.
-- [ ] P2: Harden Google Drive appProperties query escaping for run names/paths containing quotes.
+- [ ] P1: Snapshot v2 portability/versioning: include schema metadata + `gwsynth` version; support v1->v2 import compatibility with clear errors.
+- [ ] P1: Selective snapshot export/import: `tables=...` filter on API + CLI, plus a safe `mode=replace_tables` for partial restores.
+- [ ] P2: Harden Google Drive appProperties query building: escape quotes and produce deterministic query ordering.
+- [ ] P2: Add minimal `gwsynth.real plan` CLI smoke coverage using mocked clients (no external network calls).
+- [ ] P3: Add repo-root `AGENTS.md`, `PROJECT_MEMORY.md`, `INCIDENTS.md` (stable operating contract + structured memory/incident templates).
 
 ## Implemented
 - [x] 2026-02-08: Added `GET /groups/<group_id>/members` with optional cursor pagination.
@@ -28,7 +29,7 @@
   - Evidence: `docs/PLAN.md`, `docs/ROADMAP.md`, `docs/PROJECT.md`, `CHANGELOG.md`, `docs/CHANGELOG.md`.
 
 ## Insights
-- Historical failing Actions runs in this cycle were canceled runs on older commits; latest `main` runs are green (`ci`, `codeql`, `gitleaks` on commit `45c25b0`).
+- 2026-02-02 Actions failures were GitHub-hosted runner acquisition issues ("job was not acquired by Runner"); latest `main` runs are green (`ci`, `codeql`, `gitleaks` on commit `3ba9fa7`).
 - Group membership deduplication needed DB-level enforcement for race safety, not only application-level existence checks.
 - API consumer ergonomics improved by returning explicit `404` for missing item scopes instead of silent empty lists.
 

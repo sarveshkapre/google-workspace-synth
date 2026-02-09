@@ -88,7 +88,7 @@ def test_snapshot_export_import(tmp_path, monkeypatch):
     )
 
     snapshot = client1.get("/snapshot").get_json()
-    assert snapshot["snapshot_version"] == 1
+    assert snapshot["snapshot_version"] == 2
 
     client2 = _build_client(tmp_path / "db2.db", monkeypatch)
     imported = client2.post("/snapshot?mode=replace", json=snapshot).get_json()
@@ -96,6 +96,46 @@ def test_snapshot_export_import(tmp_path, monkeypatch):
 
     users = client2.get("/users").get_json()
     assert any(u["email"] == "snap@example.com" for u in users)
+
+
+def test_snapshot_tables_filter_and_replace_tables_mode(tmp_path, monkeypatch):
+    client1 = _build_client(tmp_path / "db1.db", monkeypatch)
+    user = client1.post(
+        "/users", json={"email": "snap2@example.com", "display_name": "Snap2 User"}
+    ).get_json()
+    client1.post(
+        "/items",
+        json={"name": "Root", "item_type": "folder", "owner_user_id": user["id"]},
+    )
+
+    snapshot = client1.get("/snapshot?tables=users,items").get_json()
+    assert snapshot["exported_tables"] == ["users", "items"]
+    assert set(snapshot["tables"].keys()) == {"users", "items"}
+
+    client2 = _build_client(tmp_path / "db2.db", monkeypatch)
+    # Full replace should reject partial snapshots.
+    resp = client2.post("/snapshot?mode=replace", json=snapshot)
+    assert resp.status_code == 400
+
+    imported = client2.post(
+        "/snapshot?mode=replace_tables&tables=users,items",
+        json=snapshot,
+    ).get_json()
+    assert imported["status"] == "imported"
+    users = client2.get("/users").get_json()
+    assert any(u["email"] == "snap2@example.com" for u in users)
+
+
+def test_snapshot_schema_mismatch_is_rejected(tmp_path, monkeypatch):
+    client1 = _build_client(tmp_path / "db1.db", monkeypatch)
+    client1.post("/users", json={"email": "schema@example.com", "display_name": "Schema User"})
+    snapshot = client1.get("/snapshot").get_json()
+    # Tamper with schema to reference a missing column.
+    snapshot["schema"]["users"].append("does_not_exist")
+
+    client2 = _build_client(tmp_path / "db2.db", monkeypatch)
+    resp = client2.post("/snapshot?mode=replace", json=snapshot)
+    assert resp.status_code == 400
 
 
 def test_rate_limiting(tmp_path, monkeypatch):
