@@ -8,16 +8,17 @@
 - GitHub Actions run triage (`gh run list`, `gh run view`)
 
 ## Candidate Features To Do
-- [ ] P1 (Selected): Rate limiting proxy safety: do not trust `X-Forwarded-For` by default; add `GWSYNTH_TRUST_PROXY` opt-in, docs, and tests to prevent spoofing/circumventing the limiter. (Score: impact high, effort low, strategic fit high, differentiation low, risk low-medium, confidence high)
-- [ ] P1 (Selected): Swagger UI auth ergonomics: add OpenAPI `securitySchemes` + global `security` and enable Swagger UI auth persistence so interactive docs work smoothly when `GWSYNTH_API_KEY` is set. (Score: impact medium-high, effort low, strategic fit high, differentiation low-medium, risk low, confidence high)
-- [ ] P2 (Selected): Rate limit UX: include `Retry-After` on `429` and assert rate-limit headers on throttled responses (tests) for clearer client behavior. (Score: impact medium, effort low, strategic fit medium, differentiation low, risk low, confidence high)
-- [ ] P2: OpenAPI accuracy: mark `/health` and `/stats` as public in the spec even when global auth is declared (override `security: []`). (Score: impact medium, effort low, strategic fit medium, differentiation low, risk low, confidence high)
+- [ ] P2: Swagger UI offline mode: optionally vendor Swagger UI assets to avoid CDN dependency for airgapped demos. (Score: impact medium, effort medium, strategic fit medium, differentiation low, risk low, confidence medium)
+- [ ] P2: OpenAPI completeness sweep: add schemas for currently underspecified responses (parity DX improvement). (Score: impact low-medium, effort high, strategic fit medium, differentiation low, risk low, confidence medium)
 - [ ] P3: Pagination perf: add composite indexes supporting cursor pagination (`created_at`, `id`) for large seeds. (Score: impact low-medium, effort low, strategic fit medium, differentiation low, risk low, confidence medium)
-- [ ] P3: Swagger UI offline mode: optionally vendor Swagger UI assets to avoid CDN dependency for airgapped demos. (Score: impact low-medium, effort medium, strategic fit low-medium, differentiation low, risk low, confidence medium)
-- [ ] P3: OpenAPI completeness sweep: add schemas for currently underspecified responses (parity DX improvement). (Score: impact low, effort high, strategic fit low-medium, differentiation low, risk low, confidence medium)
 - [ ] P3: Proxy-aware rate limiting: when `GWSYNTH_TRUST_PROXY=1`, optionally parse RFC 7239 `Forwarded` and/or `X-Real-IP` to align with common reverse proxies. (Score: impact low-medium, effort medium, strategic fit low, differentiation low, risk low-medium, confidence medium)
+- [ ] P3: Snapshot caching: add ETag/If-None-Match on `GET /snapshot` to speed repeated demo resets. (Score: impact low-medium, effort medium, strategic fit medium, differentiation low, risk low-medium, confidence medium)
 
 ## Implemented
+- [x] 2026-02-09: Swagger UI auth ergonomics: added OpenAPI `securitySchemes` + global `security`, marked `/health` + `/stats` as public (`security: []`), and enabled Swagger UI auth persistence (`persistAuthorization`) for smoother interactive docs when `GWSYNTH_API_KEY` is set.
+  - Evidence: `src/gwsynth/openapi.py`, `src/gwsynth/api.py`, `tests/test_api.py::test_openapi_and_docs_endpoints`.
+- [x] 2026-02-09: Rate limit UX: added `Retry-After` on `429` and asserted rate limit headers on throttled responses.
+  - Evidence: `src/gwsynth/rate_limit.py`, `tests/test_api.py::test_rate_limiting`.
 - [x] 2026-02-09: Real-tenant CLI safety: added fully mocked smoke coverage for `gwsynth.real apply --yes` and `gwsynth.real destroy --yes` (content-only + all) with zero network calls.
   - Evidence: `tests/test_real_cli_apply_destroy_smoke.py`.
 - [x] 2026-02-09: Added `GET /` landing page and allowlisted `/` + `/stats` when `GWSYNTH_API_KEY` is set.
@@ -62,6 +63,7 @@
   - WireMock exposes Swagger UI docs at `/__admin/docs` and supports OpenAPI / JSON schema driven APIs: https://wiremock.org/docs/openapi/ and https://wiremock.org/docs/api/
   - Stoplight Prism emphasizes OpenAPI-driven mocking + request validation and dynamic examples: https://github.com/stoplightio/prism
   - Mockoon highlights OpenAPI/Swagger import as a core workflow: https://github.com/mockoon/mockoon
+- Bounded market scan (untrusted): interactive docs commonly support persisting auth across refreshes; Swagger UI documents `persistAuthorization` as a config option. (https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/)
 - Bounded market scan (untrusted): Drive/Docs "mock server" repos exist but are typically narrow; a local synthetic org API benefits from strong DX (docs/spec), deterministic fixtures, and safe reset workflows.
   - GoogleDriveMock: https://github.com/nddipiazza/GoogleDriveMock
   - google-drive-mock: https://github.com/pubkey/google-drive-mock

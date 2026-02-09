@@ -138,3 +138,30 @@ Structured, append-only memory for decisions and outcomes.
 - Confidence: High
 - Trust Label: measured
 - Follow-ups: None.
+
+- Date: 2026-02-09
+- Decision: Added OpenAPI `securitySchemes` + global `security` and enabled Swagger UI auth persistence (`persistAuthorization`); `/health` and `/stats` explicitly opt out of auth in-spec via `security: []`.
+- Why: Interactive docs are baseline DX; without declared auth schemes, Swagger UI doesn't expose the correct "Authorize" controls and auth is annoying to re-enter during demos.
+- Evidence: `src/gwsynth/openapi.py`, `src/gwsynth/api.py`, `tests/test_api.py::test_openapi_and_docs_endpoints`; local `make check` pass.
+- Commit: c95498e
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: Consider vendoring Swagger UI assets to remove CDN dependency for offline demos.
+
+- Date: 2026-02-09
+- Decision: Rate limiting now returns `Retry-After` on `429` and tests assert rate limit headers on throttled responses.
+- Why: Clients need clear backoff guidance; `Retry-After` reduces thundering-herd retry behavior and improves debuggability.
+- Evidence: `src/gwsynth/rate_limit.py`, `tests/test_api.py::test_rate_limiting`; local `make check` pass.
+- Commit: 98ac98f
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: If we add proxy-aware parsing (RFC 7239 `Forwarded`), ensure spoofing remains impossible when `GWSYNTH_TRUST_PROXY` is off.
+
+- Date: 2026-02-09
+- Decision: Recorded verification evidence for this maintenance session.
+- Why: Keep changes auditable and reproducible.
+- Evidence: `make check` (pass), `make smoke` (pass).
+- Commit: N/A
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: None.
