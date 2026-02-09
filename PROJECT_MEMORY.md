@@ -120,3 +120,21 @@ Structured, append-only memory for decisions and outcomes.
 - Confidence: High
 - Trust Label: measured
 - Follow-ups: None.
+
+- Date: 2026-02-09
+- Decision: Aligned docs with API key allowlist behavior (include `/` and `/stats`).
+- Why: Prevent confusion when `GWSYNTH_API_KEY` is enabled and users rely on docs for "what needs auth".
+- Evidence: `README.md`, `docs/PROJECT.md`, `docs/SECURITY.md`; local `make check` pass.
+- Commit: 7a7f8a9
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: None.
+
+- Date: 2026-02-09
+- Decision: Verified CI for the latest `main` commits after pushes.
+- Why: Catch regressions early and keep `main` production-ready.
+- Evidence: GitHub Actions runs for commit `7a7f8a9` succeeded (`ci`, `codeql`, `gitleaks`); local `make check` pass.
+- Commit: 7a7f8a9
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: None.
