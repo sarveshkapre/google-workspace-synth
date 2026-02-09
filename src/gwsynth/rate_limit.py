@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import time
 from dataclasses import dataclass
 from threading import Lock
@@ -41,6 +42,20 @@ class _Bucket:
     def remaining(self, now: float) -> int:
         self._refill(now)
         return max(0, int(self.tokens))
+
+    def retry_after_seconds(self, now: float, amount: float = 1.0) -> int:
+        """
+        Best-effort Retry-After in seconds for token-bucket throttling.
+
+        Uses a ceil so clients don't retry too early.
+        """
+        self._refill(now)
+        if self.tokens >= amount:
+            return 0
+        if self.refill_per_second <= 0:
+            return 60
+        needed = (amount - self.tokens) / self.refill_per_second
+        return max(1, int(math.ceil(needed)))
 
 
 class RateLimiter:
@@ -94,10 +109,12 @@ class RateLimiter:
             bucket = self._get_bucket(self._key())
             allowed = bucket.consume(now, 1.0)
             remaining = bucket.remaining(now)
+            retry_after = 0 if allowed else bucket.retry_after_seconds(now, 1.0)
 
         g._gwsynth_rate_limit = {
             "limit": self._config.requests_per_minute,
             "remaining": remaining,
+            "retry_after": retry_after,
         }
 
         if allowed:
@@ -121,8 +138,15 @@ def install_rate_limiter(app: Flask, config: RateLimitConfig) -> None:
         if isinstance(meta, dict):
             limit = meta.get("limit")
             remaining = meta.get("remaining")
+            retry_after = meta.get("retry_after")
             if isinstance(limit, int):
                 response.headers["X-RateLimit-Limit"] = str(limit)
             if isinstance(remaining, int):
                 response.headers["X-RateLimit-Remaining"] = str(remaining)
+            if (
+                response.status_code == 429
+                and isinstance(retry_after, int)
+                and retry_after > 0
+            ):
+                response.headers["Retry-After"] = str(retry_after)
         return response

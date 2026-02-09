@@ -205,7 +205,12 @@ def test_rate_limiting(tmp_path, monkeypatch):
     )
     assert client.get("/health").status_code == 200
     assert client.get("/users").status_code == 200
-    assert client.get("/users").status_code == 429
+    throttled = client.get("/users")
+    assert throttled.status_code == 429
+    assert throttled.headers.get("X-RateLimit-Limit") == "1"
+    assert throttled.headers.get("X-RateLimit-Remaining") == "0"
+    retry_after = int(throttled.headers.get("Retry-After", "0"))
+    assert 1 <= retry_after <= 60
 
 
 def test_rate_limiting_does_not_trust_x_forwarded_for_by_default(tmp_path, monkeypatch):
