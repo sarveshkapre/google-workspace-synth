@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import gzip
+import io
 import json
 import sqlite3
 import sys
+import zlib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -51,6 +54,7 @@ _IMPORT_INSERT_ORDER: tuple[str, ...] = (
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
+
 def _parse_tables(value: str | None) -> list[str] | None:
     if value is None:
         return None
@@ -94,8 +98,10 @@ def _select_all(conn: sqlite3.Connection, table: str) -> list[dict[str, Any]]:
     rows = conn.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall()
     return [dict(row) for row in rows]
 
+
 def _schema_columns(conn: sqlite3.Connection, tables: Sequence[str]) -> dict[str, list[str]]:
     return {table: _table_columns(conn, table) for table in tables}
+
 
 def export_snapshot(
     conn: sqlite3.Connection, *, tables: Iterable[str] | None = None
@@ -109,6 +115,73 @@ def export_snapshot(
         "schema": _schema_columns(conn, selected),
         "tables": {table: _select_all(conn, table) for table in selected},
     }
+
+
+def _compact_dumps(value: Any) -> bytes:
+    return json.dumps(value, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+
+def iter_export_snapshot_json(
+    conn: sqlite3.Connection, *, tables: Iterable[str] | None = None
+) -> Iterable[bytes]:
+    """
+    Stream a snapshot JSON document without materializing the full snapshot in memory.
+
+    Output is compact JSON (no indentation) for speed and predictable size.
+    """
+    selected = _normalize_tables(tables)
+    exported_at = _now()
+    schema = _schema_columns(conn, selected)
+
+    yield b"{"
+    yield b"\"snapshot_version\":"
+    yield _compact_dumps(CURRENT_SNAPSHOT_VERSION)
+    yield b",\"app_version\":"
+    yield _compact_dumps(__version__)
+    yield b",\"exported_at\":"
+    yield _compact_dumps(exported_at)
+    yield b",\"exported_tables\":"
+    yield _compact_dumps(selected)
+    yield b",\"schema\":"
+    yield _compact_dumps(schema)
+    yield b",\"tables\":{"
+
+    for table_idx, table in enumerate(selected):
+        if table_idx:
+            yield b","
+        yield _compact_dumps(table)
+        yield b":["
+
+        cur = conn.execute(f"SELECT * FROM {table} ORDER BY rowid")
+        first_row = True
+        while True:
+            rows = cur.fetchmany(500)
+            if not rows:
+                break
+            for row in rows:
+                if not first_row:
+                    yield b","
+                first_row = False
+                yield _compact_dumps(dict(row))
+        yield b"]"
+
+    yield b"}}"
+
+
+def iter_gzip_bytes(chunks: Iterable[bytes], *, level: int = 6) -> Iterable[bytes]:
+    """
+    Gzip-compress an iterator of bytes without buffering the full payload.
+
+    Uses zlib's gzip wrapper mode so consumers can decompress with standard tools.
+    """
+    compressor = zlib.compressobj(level=level, wbits=16 + zlib.MAX_WBITS)
+    for chunk in chunks:
+        data = compressor.compress(chunk)
+        if data:
+            yield data
+    tail = compressor.flush()
+    if tail:
+        yield tail
 
 
 def _require_dict(value: Any, label: str) -> dict[str, Any]:
@@ -129,6 +202,7 @@ def _require_str_or_none(value: Any, label: str) -> str | None:
     if isinstance(value, str):
         return value
     raise ValueError(f"{label} must be a string or null")
+
 
 class _Col:
     def __init__(self, name: str, *, notnull: bool, default: Any) -> None:
@@ -165,7 +239,8 @@ def _iter_row_values(
         row = raw_row
         unknown = [key for key in row.keys() if key not in col_names]
         if unknown:
-            raise ValueError(f"{table}[{idx}] has unknown columns: {', '.join(sorted(unknown))}")
+            cols_joined = ", ".join(sorted(unknown))
+            raise ValueError(f"{table}[{idx}] has unknown columns: {cols_joined}")
         values: list[Any] = []
         for col in cols:
             if col.name in row:
@@ -177,6 +252,7 @@ def _iter_row_values(
                 raise ValueError(f"{table}[{idx}] missing required column: {col.name}")
             values.append(_default_value(col))
         yield tuple(values)
+
 
 def _selected_tables_from_snapshot(snapshot: Mapping[str, Any]) -> list[str]:
     raw_tables = snapshot.get("tables", {})
@@ -263,26 +339,77 @@ def import_snapshot(
     return inserted
 
 
-def _read_json(path: Path | None) -> Any:
+def _is_gzip_path(path: Path | None) -> bool:
+    return bool(path is not None and path.name.endswith(".gz"))
+
+
+def _read_json(path: Path | None, *, gzip_enabled: bool) -> Any:
     if path is None:
+        if gzip_enabled:
+            with gzip.GzipFile(fileobj=sys.stdin.buffer, mode="rb") as raw:
+                with io.TextIOWrapper(raw, encoding="utf-8") as text:
+                    return json.load(text)
         return json.load(sys.stdin)
+
+    if gzip_enabled:
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            return json.load(f)
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _write_json(payload: Any, path: Path | None) -> None:
+def _write_json(payload: Any, path: Path | None, *, gzip_enabled: bool) -> None:
     text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
     if path is None:
+        if gzip_enabled:
+            with gzip.GzipFile(fileobj=sys.stdout.buffer, mode="wb") as out:
+                out.write(text.encode("utf-8"))
+            return
         sys.stdout.write(text)
+        return
+    if gzip_enabled:
+        with gzip.open(path, "wt", encoding="utf-8") as f:
+            f.write(text)
         return
     path.write_text(text, encoding="utf-8")
 
 
-def main() -> None:
+def _write_snapshot_stream(
+    conn: sqlite3.Connection,
+    *,
+    tables: Iterable[str] | None,
+    path: Path | None,
+    gzip_enabled: bool,
+) -> None:
+    out = sys.stdout.buffer if path is None else path.open("wb")
+    try:
+        chunks: Iterable[bytes] = iter_export_snapshot_json(conn, tables=tables)
+        if gzip_enabled:
+            chunks = iter_gzip_bytes(chunks)
+        for chunk in chunks:
+            out.write(chunk)
+        if not gzip_enabled:
+            out.write(b"\n")
+    finally:
+        if path is not None:
+            out.close()
+
+
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Export/import Google Workspace Synth snapshots")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     export_p = sub.add_parser("export", help="Export DB snapshot as JSON")
     export_p.add_argument("--out", type=Path, default=None, help="Write to file (default: stdout)")
+    export_p.add_argument(
+        "--gzip",
+        action="store_true",
+        help="Gzip-compress output (also enabled automatically when --out ends with .gz)",
+    )
+    export_p.add_argument(
+        "--compact",
+        action="store_true",
+        help="Write compact JSON via streaming (recommended for large datasets)",
+    )
     export_p.add_argument(
         "--tables",
         default="",
@@ -298,21 +425,39 @@ def main() -> None:
     )
     import_p.add_argument("--mode", choices=["replace", "replace_tables"], default="replace")
     import_p.add_argument(
+        "--gzip",
+        action="store_true",
+        help="Read gzip-compressed input (also enabled automatically when --in ends with .gz)",
+    )
+    import_p.add_argument(
         "--tables",
         default="",
         help="Comma-separated subset of tables to import (default: inferred from snapshot or all)",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     init_db()
 
     if args.cmd == "export":
         selected = _parse_tables(args.tables)
+        gzip_enabled = bool(args.gzip or _is_gzip_path(args.out))
         with get_connection() as conn:
-            _write_json(export_snapshot(conn, tables=selected), args.out)
+            if args.compact or gzip_enabled:
+                _write_snapshot_stream(
+                    conn,
+                    tables=selected,
+                    path=args.out,
+                    gzip_enabled=gzip_enabled,
+                )
+            else:
+                _write_json(
+                    export_snapshot(conn, tables=selected),
+                    args.out,
+                    gzip_enabled=gzip_enabled,
+                )
         return
 
-    payload = _read_json(args.input)
+    payload = _read_json(args.input, gzip_enabled=bool(args.gzip or _is_gzip_path(args.input)))
     snapshot_dict = _require_dict(payload, "snapshot")
     with get_connection() as conn:
         selected = _parse_tables(args.tables)

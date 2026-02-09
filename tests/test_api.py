@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import gzip
 import importlib
+import json
 
 
 def _build_client(db_path, monkeypatch, env: dict[str, str] | None = None):
@@ -136,6 +138,19 @@ def test_snapshot_schema_mismatch_is_rejected(tmp_path, monkeypatch):
     client2 = _build_client(tmp_path / "db2.db", monkeypatch)
     resp = client2.post("/snapshot?mode=replace", json=snapshot)
     assert resp.status_code == 400
+
+
+def test_snapshot_gzip_stream(tmp_path, monkeypatch):
+    client = _build_client(tmp_path / "gzip.db", monkeypatch)
+    client.post("/users", json={"email": "zip@example.com", "display_name": "Zip User"})
+
+    resp = client.get("/snapshot", query_string={"gzip": "1"})
+    assert resp.status_code == 200
+    assert resp.headers.get("Content-Encoding") == "gzip"
+
+    payload = json.loads(gzip.decompress(resp.data).decode("utf-8"))
+    assert payload["snapshot_version"] == 2
+    assert "tables" in payload
 
 
 def test_rate_limiting(tmp_path, monkeypatch):

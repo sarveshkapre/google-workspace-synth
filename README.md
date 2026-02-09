@@ -124,6 +124,13 @@ Export only selected tables (useful for large datasets):
 curl -s "http://localhost:8000/snapshot?tables=users,items" > snapshot.json
 ```
 
+Export a gzip-compressed snapshot (recommended for very large datasets):
+
+```bash
+curl -s "http://localhost:8000/snapshot?gzip=1" > snapshot.json.gz
+python -c "import gzip,sys; sys.stdout.buffer.write(gzip.decompress(open('snapshot.json.gz','rb').read()))" > snapshot.json
+```
+
 Import (replaces current DB contents):
 
 ```bash
@@ -145,8 +152,11 @@ Or export/import directly from the SQLite DB:
 ```bash
 PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot export --out snapshot.json
 PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot export --out subset.json --tables users,items
+PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot export --out snapshot.json.gz
+PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot export --out snapshot.compact.json.gz --compact
 PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot import --in snapshot.json --mode replace
 PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot import --in subset.json --mode replace_tables --tables users,items
+PYTHONPATH=src ./.venv/bin/python -m gwsynth.snapshot import --in snapshot.json.gz --mode replace
 ```
 
 ## Docker

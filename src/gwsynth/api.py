@@ -4,15 +4,15 @@ import json
 import secrets
 import sqlite3
 from datetime import UTC, datetime
-from typing import Any, Callable
+from typing import Any, Callable, Iterable, Iterator, cast
 from uuid import uuid4
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request, stream_with_context
 
 from .db import get_connection
 from .pagination import Cursor, decode_cursor, encode_cursor, parse_limit
 from .schemas import ItemType, PrincipalType, RoleType
-from .snapshot import export_snapshot, import_snapshot
+from .snapshot import export_snapshot, import_snapshot, iter_export_snapshot_json, iter_gzip_bytes
 
 VALID_ITEM_TYPES: set[ItemType] = {"folder", "doc", "sheet"}
 VALID_ROLES: set[RoleType] = {"owner", "editor", "viewer"}
@@ -233,10 +233,34 @@ def register_routes(app: Flask) -> None:
     @app.get("/snapshot")
     def get_snapshot() -> Any:
         tables_param = request.args.get("tables")
+        gzip_param = request.args.get("gzip", "")
+        stream_param = request.args.get("stream", "")
+
+        tables = None
+        if tables_param is not None and tables_param.strip():
+            tables = [t.strip() for t in tables_param.split(",") if t.strip()]
+
+        gzip_enabled = gzip_param.strip().lower() in {"1", "true", "yes", "on"}
+        stream_enabled = stream_param.strip().lower() in {"1", "true", "yes", "on"}
+
+        if gzip_enabled or stream_enabled:
+            def generate() -> Iterator[bytes]:
+                with get_connection() as conn:
+                    chunks: Iterable[bytes] = iter_export_snapshot_json(conn, tables=tables)
+                    if gzip_enabled:
+                        chunks = iter_gzip_bytes(chunks)
+                    yield from chunks
+
+            headers = {}
+            if gzip_enabled:
+                headers["Content-Encoding"] = "gzip"
+            return Response(
+                stream_with_context(cast(Any, generate())),
+                mimetype="application/json",
+                headers=headers,
+            )
+
         with get_connection() as conn:
-            tables = None
-            if tables_param is not None and tables_param.strip():
-                tables = [t.strip() for t in tables_param.split(",") if t.strip()]
             return jsonify(export_snapshot(conn, tables=tables))
 
     @app.post("/snapshot")
