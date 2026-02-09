@@ -75,3 +75,12 @@ Structured, append-only memory for decisions and outcomes.
 - Confidence: Medium
 - Trust Label: untrusted
 - Follow-ups: Revisit parity expectations quarterly (docs UX, schema validation, export/import ergonomics).
+
+- Date: 2026-02-09
+- Decision: Updated CodeQL GitHub Action from v3 to v4.
+- Why: CodeQL Action v3 has an announced deprecation timeline; bumping early avoids a future CI outage.
+- Evidence: `.github/workflows/codeql.yml`; GitHub Actions run `main ci` passed after change.
+- Commit: 709d333
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: None.

@@ -14,6 +14,8 @@
 - [ ] P3: Add a small "demo guide" page (seed profiles + curl snippets + typical flows) (Score: impact medium, effort low-medium, risk low, confidence medium-high).
 
 ## Implemented
+- [x] 2026-02-09: Updated CodeQL GitHub Action from v3 to v4 to avoid the announced v3 deprecation (Dec 2026).
+  - Evidence: `.github/workflows/codeql.yml`.
 - [x] 2026-02-09: Snapshot large-export path: streaming JSON + gzip support for `GET /snapshot` and snapshot CLI `.gz` / `--gzip` / `--compact`.
   - Evidence: `src/gwsynth/snapshot.py`, `src/gwsynth/api.py`, `tests/test_api.py::test_snapshot_gzip_stream`, `tests/test_snapshot_cli.py`, `README.md`.
 - [x] 2026-02-09: API surface docs: `GET /openapi.json` and local Swagger UI docs (`GET /docs`) with auth allowlist for docs/spec.
