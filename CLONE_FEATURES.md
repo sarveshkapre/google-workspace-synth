@@ -36,7 +36,7 @@
   - Evidence: `docs/PLAN.md`, `docs/ROADMAP.md`, `docs/PROJECT.md`, `CHANGELOG.md`, `docs/CHANGELOG.md`.
 
 ## Insights
-- 2026-02-02 Actions failures were GitHub-hosted runner acquisition issues ("job was not acquired by Runner"); latest `main` runs are green (`ci`, `codeql`, `gitleaks` on commit `3dcc0d8`).
+- 2026-02-02 Actions failures were GitHub-hosted runner acquisition issues ("job was not acquired by Runner"); latest `main` runs are green.
 - Snapshot `mode=replace_tables` intentionally runs with foreign keys enabled: partial restores may cascade-delete dependent rows (safer than leaving DB inconsistent).
 - Group membership deduplication needed DB-level enforcement for race safety, not only application-level existence checks.
 - API consumer ergonomics improved by returning explicit `404` for missing item scopes instead of silent empty lists.
