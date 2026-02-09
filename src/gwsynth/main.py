@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from flask import Flask
 
 from .api import register_routes
@@ -36,4 +38,13 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    debug = os.environ.get("GWSYNTH_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
+    host = os.environ.get("GWSYNTH_HOST", "0.0.0.0")
+    port_raw = os.environ.get("GWSYNTH_PORT") or os.environ.get("PORT") or "8000"
+    try:
+        port = int(port_raw)
+    except ValueError:
+        port = 8000
+
+    # Default to non-debug for safer Docker/demo usage. `make dev` enables debug explicitly.
+    app.run(host=host, port=port, debug=debug)

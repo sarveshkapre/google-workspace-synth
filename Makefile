@@ -4,7 +4,7 @@ BIN=$(VENV)/bin
 PIP=$(BIN)/pip
 PY=$(BIN)/python
 
-.PHONY: setup dev seed test lint typecheck build check release
+.PHONY: setup dev seed smoke test lint typecheck build check release
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -12,10 +12,13 @@ setup:
 	$(PIP) install -r requirements.txt -r requirements-dev.txt
 
 dev:
-	PYTHONPATH=src $(PY) -m gwsynth.main
+	GWSYNTH_DEBUG=1 PYTHONPATH=src $(PY) -m gwsynth.main
 
 seed:
 	PYTHONPATH=src $(PY) -m gwsynth.seed
+
+smoke:
+	PYTHONPATH=src $(PY) scripts/smoke.py
 
 test:
 	PYTHONPATH=src $(BIN)/pytest

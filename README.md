@@ -77,7 +77,10 @@ Required environment variables (see blueprint for full details):
 - `GWSYNTH_RATE_LIMIT_ENABLED` (default: `true`) - basic in-memory per-IP rate limiter
 - `GWSYNTH_RATE_LIMIT_RPM` (default: `600`) - requests per minute
 - `GWSYNTH_RATE_LIMIT_BURST` (default: `60`) - burst capacity
-- `GWSYNTH_API_KEY` (optional) - require `Authorization: Bearer ...` or `X-API-Key: ...` (except `/health`)
+- `GWSYNTH_API_KEY` (optional) - require `Authorization: Bearer ...` or `X-API-Key: ...` (except `/health`, `/docs`, `/openapi.json`)
+- `GWSYNTH_DEBUG` (default: `false`) - enables Flask debug/reloader when running `python -m gwsynth.main`
+- `GWSYNTH_HOST` (default: `0.0.0.0`) - bind host for `python -m gwsynth.main`
+- `GWSYNTH_PORT` or `PORT` (default: `8000`) - bind port for `python -m gwsynth.main`
 
 ## Seeder profiles
 The seeder can model a fictional enterprise org with multiple shared drives, personal drives, and a
