@@ -5,7 +5,7 @@ import json
 import os
 import random
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -575,7 +575,7 @@ class _DriveResult:
 def _desired_drives(blueprint: Blueprint, users: list[EntraUser]) -> list[_DrivePlan]:
     departments = _departments_from_users(users)
     plans: list[_DrivePlan] = []
-    year = datetime.utcnow().year
+    year = datetime.now(UTC).year
     for department in departments:
         for index in range(blueprint.drives.shared_drives.count_per_department):
             name = blueprint.drives.shared_drives.naming.format(
@@ -806,7 +806,7 @@ def _ensure_shared_drive_permissions(
 def _ensure_shared_drive_folders(
     blueprint: Blueprint, drive_service: Any, drives: list[_DriveResult], report: ApplyReport
 ) -> None:
-    year = datetime.utcnow().year
+    year = datetime.now(UTC).year
     for drive in drives:
         path_to_id: dict[str, str] = {}
         for raw_path in blueprint.folders.shared_drive_tree:
