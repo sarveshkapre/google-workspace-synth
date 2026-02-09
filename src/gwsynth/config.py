@@ -8,6 +8,7 @@ DEFAULT_MAX_REQUEST_BYTES = 2_000_000
 DEFAULT_RATE_LIMIT_ENABLED = True
 DEFAULT_RATE_LIMIT_RPM = 600
 DEFAULT_RATE_LIMIT_BURST = 60
+DEFAULT_TRUST_PROXY = False
 
 
 def db_path() -> str:
@@ -59,6 +60,24 @@ def rate_limit_burst() -> int:
     except ValueError:
         return DEFAULT_RATE_LIMIT_BURST
     return value if value > 0 else DEFAULT_RATE_LIMIT_BURST
+
+
+def trust_proxy() -> bool:
+    """
+    Whether to trust proxy-provided client IP headers (for example `X-Forwarded-For`).
+
+    Default is False to prevent trivial spoofing when running the server directly.
+    Enable only when the service is exclusively reachable through a trusted reverse proxy.
+    """
+    raw = os.environ.get("GWSYNTH_TRUST_PROXY")
+    if raw is None or raw == "":
+        return DEFAULT_TRUST_PROXY
+    lowered = raw.strip().lower()
+    if lowered in {"0", "false", "no", "off"}:
+        return False
+    if lowered in {"1", "true", "yes", "on"}:
+        return True
+    return DEFAULT_TRUST_PROXY
 
 
 def api_key() -> str | None:

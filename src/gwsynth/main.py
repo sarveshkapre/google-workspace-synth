@@ -12,6 +12,7 @@ from .config import (
     rate_limit_burst,
     rate_limit_enabled,
     rate_limit_requests_per_minute,
+    trust_proxy,
 )
 from .db import init_db
 from .rate_limit import RateLimitConfig, install_rate_limiter
@@ -28,6 +29,7 @@ def create_app() -> Flask:
             enabled=rate_limit_enabled(),
             requests_per_minute=rate_limit_requests_per_minute(),
             burst=rate_limit_burst(),
+            trust_proxy=trust_proxy(),
         ),
     )
     register_routes(app)

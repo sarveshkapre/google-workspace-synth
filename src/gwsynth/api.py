@@ -256,6 +256,7 @@ def register_routes(app: Flask) -> None:
         <code>GWSYNTH_RATE_LIMIT_ENABLED</code>, <code>GWSYNTH_RATE_LIMIT_RPM</code>,
         <code>GWSYNTH_RATE_LIMIT_BURST</code>
       </li>
+      <li><code>GWSYNTH_TRUST_PROXY</code></li>
     </ul>
 
     <h2>Quick Curl</h2>

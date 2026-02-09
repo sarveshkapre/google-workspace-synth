@@ -10,10 +10,12 @@
 ## Candidate Features To Do
 - [ ] P1 (Selected): Rate limiting proxy safety: do not trust `X-Forwarded-For` by default; add `GWSYNTH_TRUST_PROXY` opt-in, docs, and tests to prevent spoofing/circumventing the limiter. (Score: impact high, effort low, strategic fit high, differentiation low, risk low-medium, confidence high)
 - [ ] P1 (Selected): Swagger UI auth ergonomics: add OpenAPI `securitySchemes` + global `security` and enable Swagger UI auth persistence so interactive docs work smoothly when `GWSYNTH_API_KEY` is set. (Score: impact medium-high, effort low, strategic fit high, differentiation low-medium, risk low, confidence high)
-- [ ] P2: Rate limit UX: include `Retry-After` on `429` and return rate limit headers on throttled responses too. (Score: impact medium, effort low, strategic fit medium, differentiation low, risk low, confidence medium)
+- [ ] P2 (Selected): Rate limit UX: include `Retry-After` on `429` and assert rate-limit headers on throttled responses (tests) for clearer client behavior. (Score: impact medium, effort low, strategic fit medium, differentiation low, risk low, confidence high)
+- [ ] P2: OpenAPI accuracy: mark `/health` and `/stats` as public in the spec even when global auth is declared (override `security: []`). (Score: impact medium, effort low, strategic fit medium, differentiation low, risk low, confidence high)
 - [ ] P3: Pagination perf: add composite indexes supporting cursor pagination (`created_at`, `id`) for large seeds. (Score: impact low-medium, effort low, strategic fit medium, differentiation low, risk low, confidence medium)
 - [ ] P3: Swagger UI offline mode: optionally vendor Swagger UI assets to avoid CDN dependency for airgapped demos. (Score: impact low-medium, effort medium, strategic fit low-medium, differentiation low, risk low, confidence medium)
 - [ ] P3: OpenAPI completeness sweep: add schemas for currently underspecified responses (parity DX improvement). (Score: impact low, effort high, strategic fit low-medium, differentiation low, risk low, confidence medium)
+- [ ] P3: Proxy-aware rate limiting: when `GWSYNTH_TRUST_PROXY=1`, optionally parse RFC 7239 `Forwarded` and/or `X-Real-IP` to align with common reverse proxies. (Score: impact low-medium, effort medium, strategic fit low, differentiation low, risk low-medium, confidence medium)
 
 ## Implemented
 - [x] 2026-02-09: Real-tenant CLI safety: added fully mocked smoke coverage for `gwsynth.real apply --yes` and `gwsynth.real destroy --yes` (content-only + all) with zero network calls.

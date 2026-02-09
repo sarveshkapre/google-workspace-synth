@@ -10,6 +10,8 @@ Please open a GitHub issue with steps to reproduce. Avoid sharing real secrets.
 - No auth by default: this server is for local development only.
 - Inputs are validated, size-limited, and rate-limited in code.
 - SQLite file is local; protect it with filesystem permissions.
+- If you run this behind a reverse proxy, do not trust client IP headers unless the proxy is trusted.
+  Use `GWSYNTH_TRUST_PROXY=true` only when the app is exclusively reachable via that proxy.
 
 ## Optional API key
 If you set `GWSYNTH_API_KEY`, all endpoints except `/`, `/health`, `/docs`, `/openapi.json`, and `/stats` require either:

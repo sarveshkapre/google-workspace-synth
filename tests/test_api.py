@@ -201,6 +201,40 @@ def test_rate_limiting(tmp_path, monkeypatch):
     assert client.get("/users").status_code == 429
 
 
+def test_rate_limiting_does_not_trust_x_forwarded_for_by_default(tmp_path, monkeypatch):
+    client = _build_client(
+        tmp_path / "ratelimit_xff.db",
+        monkeypatch,
+        env={
+            "GWSYNTH_RATE_LIMIT_ENABLED": "1",
+            "GWSYNTH_RATE_LIMIT_RPM": "1",
+            "GWSYNTH_RATE_LIMIT_BURST": "1",
+        },
+    )
+
+    # If we trusted X-Forwarded-For by default, swapping this header would evade the limiter.
+    assert client.get("/users", headers={"X-Forwarded-For": "1.1.1.1"}).status_code == 200
+    assert client.get("/users", headers={"X-Forwarded-For": "2.2.2.2"}).status_code == 429
+
+
+def test_rate_limiting_can_trust_x_forwarded_for_when_enabled(tmp_path, monkeypatch):
+    client = _build_client(
+        tmp_path / "ratelimit_trust_proxy.db",
+        monkeypatch,
+        env={
+            "GWSYNTH_RATE_LIMIT_ENABLED": "1",
+            "GWSYNTH_RATE_LIMIT_RPM": "1",
+            "GWSYNTH_RATE_LIMIT_BURST": "1",
+            "GWSYNTH_TRUST_PROXY": "1",
+        },
+    )
+
+    assert client.get("/users", headers={"X-Forwarded-For": "1.1.1.1"}).status_code == 200
+    assert client.get("/users", headers={"X-Forwarded-For": "1.1.1.1"}).status_code == 429
+    # Different forwarded IP should be tracked separately when explicitly enabled.
+    assert client.get("/users", headers={"X-Forwarded-For": "2.2.2.2"}).status_code == 200
+
+
 def test_item_activity_timeline(tmp_path, monkeypatch):
     client = _build_client(tmp_path / "activity.db", monkeypatch)
 

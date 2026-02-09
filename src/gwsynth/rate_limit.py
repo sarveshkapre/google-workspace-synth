@@ -12,6 +12,7 @@ class RateLimitConfig:
     enabled: bool
     requests_per_minute: int
     burst: int
+    trust_proxy: bool = False
 
 
 class _Bucket:
@@ -50,11 +51,13 @@ class RateLimiter:
         self._requests_since_prune = 0
 
     def _key(self) -> str:
-        forwarded = request.headers.get("X-Forwarded-For", "")
-        if forwarded:
-            first = forwarded.split(",")[0].strip()
-            if first:
-                return first
+        if self._config.trust_proxy:
+            # Only trust this header when the server is exclusively behind a trusted proxy.
+            forwarded = request.headers.get("X-Forwarded-For", "")
+            if forwarded:
+                first = forwarded.split(",")[0].strip()
+                if first:
+                    return first
         return request.remote_addr or "unknown"
 
     def _get_bucket(self, key: str) -> _Bucket:
