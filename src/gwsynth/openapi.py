@@ -23,10 +23,15 @@ def openapi_spec() -> dict[str, Any]:
                 "`Authorization: Bearer <key>` or `X-API-Key: <key>`."
             ),
         },
+        # If API key auth is enabled, clients should provide either X-API-Key
+        # or Authorization: Bearer.
+        # Public routes explicitly opt out per-operation below.
+        "security": [{"ApiKeyAuth": []}, {"BearerAuth": []}],
         "paths": {
             "/health": {
                 "get": {
                     "summary": "Health check",
+                    "security": [],
                     "responses": {
                         "200": {
                             "description": "OK",
@@ -38,6 +43,7 @@ def openapi_spec() -> dict[str, Any]:
             "/stats": {
                 "get": {
                     "summary": "Counts of core resources",
+                    "security": [],
                     "responses": {
                         "200": {
                             "description": "OK",
@@ -603,6 +609,19 @@ def openapi_spec() -> dict[str, Any]:
             },
         },
         "components": {
+            "securitySchemes": {
+                "ApiKeyAuth": {
+                    "type": "apiKey",
+                    "in": "header",
+                    "name": "X-API-Key",
+                    "description": "Provide the API key in the X-API-Key header.",
+                },
+                "BearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "description": "Provide the API key as an Authorization: Bearer token.",
+                },
+            },
             "parameters": {
                 "Limit": {
                     "name": "limit",

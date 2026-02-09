@@ -291,7 +291,11 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
     <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
     <script>
       window.onload = () => {
-        SwaggerUIBundle({ url: "/openapi.json", dom_id: "#swagger-ui" });
+        SwaggerUIBundle({
+          url: "/openapi.json",
+          dom_id: "#swagger-ui",
+          persistAuthorization: true,
+        });
       };
     </script>
   </body>

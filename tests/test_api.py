@@ -163,10 +163,17 @@ def test_openapi_and_docs_endpoints(tmp_path, monkeypatch):
     spec = client.get("/openapi.json").get_json()
     assert spec["openapi"].startswith("3.")
     assert spec["info"]["title"]
+    assert spec["security"] == [{"ApiKeyAuth": []}, {"BearerAuth": []}]
+    assert "securitySchemes" in spec["components"]
+    assert "ApiKeyAuth" in spec["components"]["securitySchemes"]
+    assert "BearerAuth" in spec["components"]["securitySchemes"]
+    assert spec["paths"]["/health"]["get"].get("security") == []
+    assert spec["paths"]["/stats"]["get"].get("security") == []
 
     docs = client.get("/docs")
     assert docs.status_code == 200
     assert "text/html" in (docs.content_type or "")
+    assert "persistAuthorization" in docs.data.decode("utf-8")
 
 
 def test_api_key_auth_allows_docs_and_openapi(tmp_path, monkeypatch):
