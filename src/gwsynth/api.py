@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from flask import Flask, Response, jsonify, request, stream_with_context
 
+from .config import api_key
 from .db import get_connection
 from .openapi import openapi_spec
 from .pagination import Cursor, decode_cursor, encode_cursor, parse_limit
@@ -208,6 +209,63 @@ def register_routes(app: Flask) -> None:
     @app.get("/health")
     def health() -> Any:
         return jsonify({"status": "ok"})
+
+    @app.get("/")
+    def index() -> Any:
+        auth_enabled = api_key() is not None
+        auth_line = (
+            "API key auth: enabled (most API routes require X-API-Key or Authorization: Bearer)"
+            if auth_enabled
+            else "API key auth: disabled (local-dev default)"
+        )
+        html = f"""
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GWSynth</title>
+    <style>
+      :root {{ color-scheme: light; }}
+      body {{
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+        margin: 32px;
+      }}
+      code {{ background: #f5f5f5; padding: 2px 6px; border-radius: 6px; }}
+      .links a {{ display: inline-block; margin-right: 14px; }}
+      .muted {{ color: #555; }}
+      pre {{ background: #f5f5f5; padding: 12px; border-radius: 10px; overflow-x: auto; }}
+    </style>
+  </head>
+  <body>
+    <h1>Google Workspace Synth</h1>
+    <p class="muted">{auth_line}</p>
+    <p class="links">
+      <a href="/docs">API docs</a>
+      <a href="/openapi.json">OpenAPI</a>
+      <a href="/health">Health</a>
+      <a href="/stats">Stats</a>
+    </p>
+
+    <h2>Common Env Vars</h2>
+    <ul>
+      <li><code>GWSYNTH_DB_PATH</code></li>
+      <li><code>GWSYNTH_API_KEY</code></li>
+      <li><code>GWSYNTH_MAX_REQUEST_BYTES</code></li>
+      <li>
+        <code>GWSYNTH_RATE_LIMIT_ENABLED</code>, <code>GWSYNTH_RATE_LIMIT_RPM</code>,
+        <code>GWSYNTH_RATE_LIMIT_BURST</code>
+      </li>
+    </ul>
+
+    <h2>Quick Curl</h2>
+    <pre><code>curl -s http://localhost:8000/health
+curl -s http://localhost:8000/users
+curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
+  </body>
+</html>
+"""
+        return Response(html, mimetype="text/html")
 
     @app.get("/openapi.json")
     def openapi() -> Any:

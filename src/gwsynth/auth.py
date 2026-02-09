@@ -9,7 +9,8 @@ def install_api_key_auth(app: Flask, api_key: str | None) -> None:
     if not api_key:
         return
 
-    allow_paths = {"/health", "/docs", "/openapi.json"}
+    # Routes that stay accessible for demo ergonomics even when an API key is set.
+    allow_paths = {"/", "/health", "/docs", "/openapi.json", "/stats"}
 
     @app.before_request
     def _require_api_key() -> Response | None:

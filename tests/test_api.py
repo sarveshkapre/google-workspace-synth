@@ -156,6 +156,10 @@ def test_snapshot_gzip_stream(tmp_path, monkeypatch):
 def test_openapi_and_docs_endpoints(tmp_path, monkeypatch):
     client = _build_client(tmp_path / "docs.db", monkeypatch)
 
+    index = client.get("/")
+    assert index.status_code == 200
+    assert "text/html" in (index.content_type or "")
+
     spec = client.get("/openapi.json").get_json()
     assert spec["openapi"].startswith("3.")
     assert spec["info"]["title"]
@@ -172,9 +176,11 @@ def test_api_key_auth_allows_docs_and_openapi(tmp_path, monkeypatch):
         env={"GWSYNTH_API_KEY": "secret"},
     )
 
+    assert client.get("/").status_code == 200
     assert client.get("/health").status_code == 200
     assert client.get("/docs").status_code == 200
     assert client.get("/openapi.json").status_code == 200
+    assert client.get("/stats").status_code == 200
 
     assert client.get("/users").status_code == 401
     assert client.get("/users", headers={"X-API-Key": "secret"}).status_code == 200
