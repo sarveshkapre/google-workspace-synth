@@ -8,15 +8,18 @@
 - GitHub Actions run triage (`gh run list`, `gh run view`)
 
 ## Candidate Features To Do
-- [ ] P1: Snapshot large-export path: add streaming JSON + gzip support for `GET /snapshot` and `python -m gwsynth.snapshot export` (Score: impact high, effort medium, risk low, confidence high).
-- [ ] P1: API surface docs: ship an OpenAPI spec plus `GET /openapi.json` and a minimal local `/docs` page (Score: impact high, effort medium, risk low, confidence medium-high).
 - [ ] P2: Real-tenant CLI safety: add fully mocked smoke coverage for `gwsynth.real destroy` and (if feasible) `apply --yes` with no network calls (Score: impact medium, effort medium-high, risk medium, confidence medium).
 - [ ] P2: Snapshot compatibility: define a nullable/optional column fill policy and record explicit migration notes per snapshot version (Score: impact medium, effort medium, risk low, confidence medium).
-- [ ] P3: Add `make smoke` that starts the API and runs a minimal curl-based verification suite (Score: impact medium, effort low, risk low, confidence high).
-- [ ] P3: Snapshot ergonomics: auto-gzip exports when `--out` ends in `.gz`, and document recommended large-export flags (Score: impact medium, effort low, risk low, confidence high).
 - [ ] P3: Add `GET /` landing page (or extend `/health`) with links to `/docs`, `/openapi.json`, and key env vars for demo ergonomics (Score: impact low-medium, effort low, risk low, confidence high).
+- [ ] P3: Add a small "demo guide" page (seed profiles + curl snippets + typical flows) (Score: impact medium, effort low-medium, risk low, confidence medium-high).
 
 ## Implemented
+- [x] 2026-02-09: Snapshot large-export path: streaming JSON + gzip support for `GET /snapshot` and snapshot CLI `.gz` / `--gzip` / `--compact`.
+  - Evidence: `src/gwsynth/snapshot.py`, `src/gwsynth/api.py`, `tests/test_api.py::test_snapshot_gzip_stream`, `tests/test_snapshot_cli.py`, `README.md`.
+- [x] 2026-02-09: API surface docs: `GET /openapi.json` and local Swagger UI docs (`GET /docs`) with auth allowlist for docs/spec.
+  - Evidence: `src/gwsynth/openapi.py`, `src/gwsynth/api.py`, `src/gwsynth/auth.py`, `tests/test_api.py::test_openapi_and_docs_endpoints`, `README.md`.
+- [x] 2026-02-09: Added `make smoke` and a real local smoke runner; default `python -m gwsynth.main` to non-debug with configurable host/port.
+  - Evidence: `Makefile`, `scripts/smoke.py`, `src/gwsynth/main.py`, `README.md`, `docs/PROJECT.md`.
 - [x] 2026-02-09: Snapshot v2 metadata + schema checks; added `tables=...` filtering and `mode=replace_tables` (API + CLI).
   - Evidence: `src/gwsynth/snapshot.py`, `src/gwsynth/api.py`, `tests/test_api.py::test_snapshot_tables_filter_and_replace_tables_mode`, `README.md`.
 - [x] 2026-02-09: Hardened Google Drive appProperties query building (escape quotes/backslashes; deterministic ordering).
@@ -43,9 +46,13 @@
 - Snapshot `mode=replace_tables` intentionally runs with foreign keys enabled: partial restores may cascade-delete dependent rows (safer than leaving DB inconsistent).
 - Group membership deduplication needed DB-level enforcement for race safety, not only application-level existence checks.
 - API consumer ergonomics improved by returning explicit `404` for missing item scopes instead of silent empty lists.
+- Bounded market scan (untrusted): local mock servers commonly treat OpenAPI + interactive docs as baseline DX.
+  - WireMock exposes Swagger UI docs at `/__admin/docs` and supports OpenAPI / JSON schema driven APIs: https://wiremock.org/docs/openapi/ and https://wiremock.org/docs/api/
+  - Stoplight Prism emphasizes OpenAPI-driven mocking + request validation and dynamic examples: https://github.com/stoplightio/prism
+  - Mockoon highlights OpenAPI/Swagger import as a core workflow: https://github.com/mockoon/mockoon
 
 ## Notes
 - This file is maintained by the autonomous clone loop.
 - Verification evidence for this cycle:
   - `make check` (pass)
-  - Local smoke flow: start API + `curl /health`, `curl /snapshot?tables=users,items` (pass)
+  - `make smoke` (pass)

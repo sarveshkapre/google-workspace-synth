@@ -40,3 +40,38 @@ Structured, append-only memory for decisions and outcomes.
 - Trust Label: measured
 - Follow-ups: Expand smoke coverage to `apply --yes` in a fully mocked mode (no network), or factor dependency injection for clients.
 
+- Date: 2026-02-09
+- Decision: Snapshot export now supports streaming compact JSON and gzip compression (API `GET /snapshot?gzip=1` and snapshot CLI `.gz` / `--gzip` / `--compact`).
+- Why: Large demo datasets were memory- and transfer-heavy with full in-memory JSON materialization.
+- Evidence: `src/gwsynth/snapshot.py`, `src/gwsynth/api.py`, `tests/test_api.py::test_snapshot_gzip_stream`, `tests/test_snapshot_cli.py`; local `make check` pass.
+- Commit: 3a58b58
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: Consider adding ETag/If-None-Match for repeated snapshot downloads in demo loops.
+
+- Date: 2026-02-09
+- Decision: Added OpenAPI spec (`GET /openapi.json`) and local Swagger UI docs page (`GET /docs`); docs/spec are accessible even when API key auth is enabled.
+- Why: Interactive API docs and a machine-readable contract are baseline DX for local API tools and reduce integration friction.
+- Evidence: `src/gwsynth/openapi.py`, `src/gwsynth/api.py`, `src/gwsynth/auth.py`, `tests/test_api.py::test_openapi_and_docs_endpoints`; local `make check` pass.
+- Commit: ccfc64e
+- Confidence: Medium-High
+- Trust Label: measured
+- Follow-ups: Expand schema detail in the spec for list responses (paged vs unpaged) and item subresources.
+
+- Date: 2026-02-09
+- Decision: Default `python -m gwsynth.main` to non-debug; add `GWSYNTH_DEBUG`, `GWSYNTH_HOST`, and `GWSYNTH_PORT`/`PORT` plus `make smoke`.
+- Why: Docker/dev-server defaults should be safer and easier to validate; debug/reloader should be opt-in.
+- Evidence: `src/gwsynth/main.py`, `Makefile`, `scripts/smoke.py`, `make smoke` output (`smoke ok`).
+- Commit: fa367c1
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: If needed for hosting, add structured logging and a production WSGI server option (gunicorn) behind a separate entrypoint.
+
+- Date: 2026-02-09
+- Decision: Bounded market scan: OpenAPI-first local mock servers emphasize interactive docs and request validation as baseline UX.
+- Why: Helps prioritize emulator UX (docs/spec, validation, repeatable seeds/snapshots) without copying competitor assets.
+- Evidence: WireMock OpenAPI docs (https://wiremock.org/docs/openapi/), Prism repo (https://github.com/stoplightio/prism), Mockoon repo (https://github.com/mockoon/mockoon).
+- Commit: N/A
+- Confidence: Medium
+- Trust Label: untrusted
+- Follow-ups: Revisit parity expectations quarterly (docs UX, schema validation, export/import ergonomics).
