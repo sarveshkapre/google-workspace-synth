@@ -8,8 +8,12 @@
 - GitHub Actions run triage (`gh run list`, `gh run view`)
 
 ## Candidate Features To Do
-- [ ] P3: Swagger UI auth ergonomics: support providing API key to the interactive docs UI when `GWSYNTH_API_KEY` is set (Score: impact low-medium, effort medium, risk low, confidence medium).
-- [ ] P3: Rate limit proxy awareness: optional trust-proxy mode (use `X-Forwarded-For`) with tests and clear docs (Score: impact low-medium, effort medium, risk medium, confidence medium).
+- [ ] P1 (Selected): Rate limiting proxy safety: do not trust `X-Forwarded-For` by default; add `GWSYNTH_TRUST_PROXY` opt-in, docs, and tests to prevent spoofing/circumventing the limiter. (Score: impact high, effort low, strategic fit high, differentiation low, risk low-medium, confidence high)
+- [ ] P1 (Selected): Swagger UI auth ergonomics: add OpenAPI `securitySchemes` + global `security` and enable Swagger UI auth persistence so interactive docs work smoothly when `GWSYNTH_API_KEY` is set. (Score: impact medium-high, effort low, strategic fit high, differentiation low-medium, risk low, confidence high)
+- [ ] P2: Rate limit UX: include `Retry-After` on `429` and return rate limit headers on throttled responses too. (Score: impact medium, effort low, strategic fit medium, differentiation low, risk low, confidence medium)
+- [ ] P3: Pagination perf: add composite indexes supporting cursor pagination (`created_at`, `id`) for large seeds. (Score: impact low-medium, effort low, strategic fit medium, differentiation low, risk low, confidence medium)
+- [ ] P3: Swagger UI offline mode: optionally vendor Swagger UI assets to avoid CDN dependency for airgapped demos. (Score: impact low-medium, effort medium, strategic fit low-medium, differentiation low, risk low, confidence medium)
+- [ ] P3: OpenAPI completeness sweep: add schemas for currently underspecified responses (parity DX improvement). (Score: impact low, effort high, strategic fit low-medium, differentiation low, risk low, confidence medium)
 
 ## Implemented
 - [x] 2026-02-09: Real-tenant CLI safety: added fully mocked smoke coverage for `gwsynth.real apply --yes` and `gwsynth.real destroy --yes` (content-only + all) with zero network calls.
