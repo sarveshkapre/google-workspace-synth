@@ -8,10 +8,13 @@
 - GitHub Actions run triage (`gh run list`, `gh run view`)
 
 ## Candidate Features To Do
-- [ ] P1: Add snapshot compression and/or streaming export for very large demo datasets.
-- [ ] P1: Add richer snapshot compatibility guarantees (optional/nullable column fill policy + explicit migration notes).
-- [ ] P2: Add mocked smoke coverage for `gwsynth.real apply --yes` and `destroy` flows (no network).
-- [ ] P2: Add API surface documentation: OpenAPI spec + local docs page for endpoints and payloads.
+- [ ] P1: Snapshot large-export path: add streaming JSON + gzip support for `GET /snapshot` and `python -m gwsynth.snapshot export` (Score: impact high, effort medium, risk low, confidence high).
+- [ ] P1: API surface docs: ship an OpenAPI spec plus `GET /openapi.json` and a minimal local `/docs` page (Score: impact high, effort medium, risk low, confidence medium-high).
+- [ ] P2: Real-tenant CLI safety: add fully mocked smoke coverage for `gwsynth.real destroy` and (if feasible) `apply --yes` with no network calls (Score: impact medium, effort medium-high, risk medium, confidence medium).
+- [ ] P2: Snapshot compatibility: define a nullable/optional column fill policy and record explicit migration notes per snapshot version (Score: impact medium, effort medium, risk low, confidence medium).
+- [ ] P3: Add `make smoke` that starts the API and runs a minimal curl-based verification suite (Score: impact medium, effort low, risk low, confidence high).
+- [ ] P3: Snapshot ergonomics: auto-gzip exports when `--out` ends in `.gz`, and document recommended large-export flags (Score: impact medium, effort low, risk low, confidence high).
+- [ ] P3: Add `GET /` landing page (or extend `/health`) with links to `/docs`, `/openapi.json`, and key env vars for demo ergonomics (Score: impact low-medium, effort low, risk low, confidence high).
 
 ## Implemented
 - [x] 2026-02-09: Snapshot v2 metadata + schema checks; added `tables=...` filtering and `mode=replace_tables` (API + CLI).
