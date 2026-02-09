@@ -172,7 +172,11 @@ docker run -p 8000:8000 google-workspace-synth
 ```
 
 ## Project docs
-See `docs/` for architecture, security notes, and workflows.
+- `docs/PROJECT.md` - commands, environment, and the short "next improvements" list
+- `docs/DEMO_GUIDE.md` - seed profiles + curl flows + snapshot reset loop
+- `docs/SNAPSHOTS.md` - snapshot format, compatibility policy, and migration notes
+- `docs/SECURITY.md` - threat model notes and optional API key auth
+- `docs/ROADMAP.md` - upcoming work
 
 ## License
 MIT
