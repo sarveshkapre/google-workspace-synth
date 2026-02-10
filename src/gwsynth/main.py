@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
-from flask import Flask
+from flask import Flask, jsonify
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from .api import register_routes
 from .auth import install_api_key_auth
@@ -21,6 +23,23 @@ from .rate_limit import RateLimitConfig, install_rate_limiter
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = max_request_bytes()
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_request_too_large(exc: RequestEntityTooLarge) -> tuple[Any, int]:
+        # Flask raises this before route handlers run; return JSON with an actionable hint.
+        return (
+            jsonify(
+                {
+                    "error": "Request entity too large",
+                    "hint": (
+                        "Raise GWSYNTH_MAX_REQUEST_BYTES. For large snapshots, use "
+                        "Content-Encoding: gzip on POST /snapshot."
+                    ),
+                }
+            ),
+            413,
+        )
+
     init_db()
     install_api_key_auth(app, api_key())
     install_rate_limiter(

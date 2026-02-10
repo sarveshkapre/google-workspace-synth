@@ -4,7 +4,7 @@ Snapshots are a portable JSON export/import format for resetting a seeded demo o
 
 ## API and CLI
 - API export: `GET /snapshot` (supports `tables=...` and `gzip=1`)
-- API import: `POST /snapshot?mode=replace` or `POST /snapshot?mode=replace_tables&tables=...`
+- API import: `POST /snapshot?mode=replace` or `POST /snapshot?mode=replace_tables&tables=...` (supports `Content-Encoding: gzip`)
 - CLI: `python -m gwsynth.snapshot export|import` (supports `--tables`, `--gzip`, `--compact`)
 
 ## Versions
@@ -41,4 +41,3 @@ Practical rule for future schema changes:
 
 ## Migration Notes
 - v1 -> v2: added export metadata and optional schema hints; table row formats are unchanged.
-

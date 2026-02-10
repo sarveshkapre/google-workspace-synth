@@ -3,6 +3,7 @@ from __future__ import annotations
 import gzip
 import importlib
 import json
+import time
 
 
 def _build_client(db_path, monkeypatch, env: dict[str, str] | None = None):
@@ -151,6 +152,81 @@ def test_snapshot_gzip_stream(tmp_path, monkeypatch):
     payload = json.loads(gzip.decompress(resp.data).decode("utf-8"))
     assert payload["snapshot_version"] == 2
     assert "tables" in payload
+
+
+def test_snapshot_import_accepts_gzip_content_encoding(tmp_path, monkeypatch):
+    client1 = _build_client(tmp_path / "db1.db", monkeypatch)
+    client1.post("/users", json={"email": "zipin@example.com", "display_name": "ZipIn User"})
+    snapshot = client1.get("/snapshot").get_json()
+
+    gz = gzip.compress(json.dumps(snapshot).encode("utf-8"))
+
+    client2 = _build_client(tmp_path / "db2.db", monkeypatch)
+    imported = client2.post(
+        "/snapshot?mode=replace",
+        data=gz,
+        headers={"Content-Type": "application/json", "Content-Encoding": "gzip"},
+    )
+    assert imported.status_code == 200
+    assert imported.get_json()["status"] == "imported"
+
+
+def test_snapshot_import_gzip_respects_decompressed_limit(tmp_path, monkeypatch):
+    client1 = _build_client(tmp_path / "db1.db", monkeypatch)
+    client1.post("/users", json={"email": "ziplimit@example.com", "display_name": "ZipLimit"})
+    snapshot = client1.get("/snapshot").get_json()
+    gz = gzip.compress(json.dumps(snapshot).encode("utf-8"))
+
+    client2 = _build_client(
+        tmp_path / "db2.db",
+        monkeypatch,
+        env={"GWSYNTH_SNAPSHOT_MAX_DECOMPRESSED_BYTES": "10"},
+    )
+    resp = client2.post(
+        "/snapshot?mode=replace",
+        data=gz,
+        headers={"Content-Type": "application/json", "Content-Encoding": "gzip"},
+    )
+    assert resp.status_code == 400
+    assert "Decompressed snapshot body exceeds" in resp.get_json()["error"]
+
+
+def test_snapshot_etag_if_none_match(tmp_path, monkeypatch):
+    client = _build_client(tmp_path / "etag.db", monkeypatch)
+    client.post("/users", json={"email": "etag@example.com", "display_name": "Etag User"})
+
+    resp1 = client.get("/snapshot")
+    assert resp1.status_code == 200
+    etag = resp1.headers.get("ETag")
+    assert etag
+
+    resp2 = client.get("/snapshot", headers={"If-None-Match": etag})
+    assert resp2.status_code == 304
+    assert resp2.data == b""
+
+    time.sleep(0.01)
+    client.post("/users", json={"email": "etag2@example.com", "display_name": "Etag2 User"})
+    resp3 = client.get("/snapshot")
+    assert resp3.status_code == 200
+    etag2 = resp3.headers.get("ETag")
+    assert etag2 and etag2 != etag
+
+
+def test_request_entity_too_large_is_json(tmp_path, monkeypatch):
+    client = _build_client(
+        tmp_path / "limit.db",
+        monkeypatch,
+        env={"GWSYNTH_MAX_REQUEST_BYTES": "50"},
+    )
+    resp = client.post(
+        "/snapshot?mode=replace",
+        data=b'{"a":"' + (b"x" * 200) + b'"}',
+        headers={"Content-Type": "application/json"},
+    )
+    assert resp.status_code == 413
+    body = resp.get_json()
+    assert body["error"]
+    assert "GWSYNTH_MAX_REQUEST_BYTES" in body["hint"]
 
 
 def test_openapi_and_docs_endpoints(tmp_path, monkeypatch):

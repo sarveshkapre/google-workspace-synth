@@ -82,9 +82,10 @@ BASE=http://localhost:8000
 curl -s "$BASE/snapshot?gzip=1" > snapshot.json.gz
 
 # Before each demo run:
-gunzip -c snapshot.json.gz | curl -s -X POST "$BASE/snapshot?mode=replace" \
+curl -s -X POST "$BASE/snapshot?mode=replace" \
   -H 'content-type: application/json' \
-  --data-binary @- | jq .
+  -H 'content-encoding: gzip' \
+  --data-binary @snapshot.json.gz | jq .
 ```
 
 ## Optional API Key (Safer Demos)
@@ -101,4 +102,3 @@ Then use one of:
 - `Authorization: Bearer dev-secret`
 
 The docs/spec stay accessible at `/`, `/docs`, `/openapi.json`, `/health`, and `/stats`.
-

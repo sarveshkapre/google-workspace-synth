@@ -87,10 +87,16 @@ def openapi_spec() -> dict[str, Any]:
                                 }
                             },
                         }
+                        ,
+                        "304": {"description": "Not modified (ETag match)"},
                     },
                 },
                 "post": {
                     "summary": "Import a DB snapshot",
+                    "description": (
+                        "Accepts JSON. For large snapshots, clients may send gzip-compressed JSON "
+                        "with `Content-Encoding: gzip`."
+                    ),
                     "parameters": [
                         {
                             "name": "mode",
@@ -118,6 +124,14 @@ def openapi_spec() -> dict[str, Any]:
                         "200": {"description": "Imported"},
                         "400": {
                             "description": "Invalid snapshot",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
+                        "413": {
+                            "description": "Request entity too large",
                             "content": {
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/Error"}

@@ -5,6 +5,7 @@ from pathlib import Path
 
 DEFAULT_DB_PATH = "./data/gwsynth.db"
 DEFAULT_MAX_REQUEST_BYTES = 2_000_000
+DEFAULT_SNAPSHOT_MAX_DECOMPRESSED_BYTES = 50_000_000
 DEFAULT_RATE_LIMIT_ENABLED = True
 DEFAULT_RATE_LIMIT_RPM = 600
 DEFAULT_RATE_LIMIT_BURST = 60
@@ -26,6 +27,22 @@ def max_request_bytes() -> int:
     except ValueError:
         return DEFAULT_MAX_REQUEST_BYTES
     return value if value > 0 else DEFAULT_MAX_REQUEST_BYTES
+
+
+def snapshot_max_decompressed_bytes() -> int:
+    """
+    Max allowed decompressed bytes for `POST /snapshot` when `Content-Encoding: gzip` is used.
+
+    This is separate from `GWSYNTH_MAX_REQUEST_BYTES` which limits the compressed request size.
+    """
+    raw = os.environ.get("GWSYNTH_SNAPSHOT_MAX_DECOMPRESSED_BYTES")
+    if not raw:
+        return DEFAULT_SNAPSHOT_MAX_DECOMPRESSED_BYTES
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_SNAPSHOT_MAX_DECOMPRESSED_BYTES
+    return value if value > 0 else DEFAULT_SNAPSHOT_MAX_DECOMPRESSED_BYTES
 
 
 def rate_limit_enabled() -> bool:

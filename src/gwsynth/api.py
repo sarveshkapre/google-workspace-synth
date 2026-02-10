@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import gzip
+import hashlib
+import io
 import json
 import secrets
 import sqlite3
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator, cast
 from uuid import uuid4
 
 from flask import Flask, Response, jsonify, request, stream_with_context
 
-from .config import api_key
+from .config import api_key, db_path, snapshot_max_decompressed_bytes
 from .db import get_connection
 from .openapi import openapi_spec
 from .pagination import Cursor, decode_cursor, encode_cursor, parse_limit
@@ -95,6 +99,78 @@ def _parse_sheet_data(value: Any, *, required: bool) -> dict[str, str] | None:
 
 def _json_dumps(data: dict[str, Any]) -> str:
     return json.dumps(data, separators=(",", ":"), sort_keys=True)
+
+
+def _split_header_tokens(value: str) -> list[str]:
+    return [part.strip() for part in value.split(",") if part.strip()]
+
+
+def _snapshot_etag(
+    *,
+    tables: list[str] | None,
+    gzip_enabled: bool,
+    stream_enabled: bool,
+) -> str:
+    """
+    Compute an ETag for the snapshot representation without materializing the snapshot.
+
+    This is a best-effort cache key for local/demo usage (based on DB file mtime/size + query
+    params).
+    """
+    p = Path(db_path())
+    try:
+        st = p.stat()
+        size = st.st_size
+        mtime_ns = st.st_mtime_ns
+    except FileNotFoundError:
+        size = 0
+        mtime_ns = 0
+
+    tables_key = ",".join(tables or [])
+    key = f"{size}:{mtime_ns}:{tables_key}:{int(gzip_enabled)}:{int(stream_enabled)}".encode(
+        "utf-8"
+    )
+    digest = hashlib.sha256(key).hexdigest()[:32]
+    return f'W/"{digest}"'
+
+
+def _if_none_match_matches(etag: str) -> bool:
+    raw = request.headers.get("If-None-Match")
+    if not raw:
+        return False
+    tokens = _split_header_tokens(raw)
+    return etag in tokens or "*" in tokens
+
+
+def _gunzip_limited(data: bytes, *, limit: int) -> bytes:
+    with gzip.GzipFile(fileobj=io.BytesIO(data)) as f:
+        out = f.read(limit + 1)
+    if len(out) > limit:
+        raise ValueError(f"Decompressed snapshot body exceeds {limit} bytes")
+    return out
+
+
+def _request_json_object() -> dict[str, Any]:
+    enc = request.headers.get("Content-Encoding", "")
+    encodings = {token.lower() for token in _split_header_tokens(enc)}
+    if "gzip" in encodings:
+        raw = request.get_data(cache=False)
+        try:
+            decompressed = _gunzip_limited(raw, limit=snapshot_max_decompressed_bytes())
+        except OSError as exc:
+            raise ValueError("Invalid gzip request body") from exc
+        try:
+            payload = json.loads(decompressed.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("Invalid JSON body") from exc
+    else:
+        payload = request.get_json(silent=True)
+
+    if payload is None:
+        raise ValueError("JSON body required")
+    if not isinstance(payload, dict):
+        raise ValueError("Body must be an object")
+    return cast(dict[str, Any], payload)
 
 
 def _record_activity(
@@ -338,7 +414,17 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
         gzip_enabled = gzip_param.strip().lower() in {"1", "true", "yes", "on"}
         stream_enabled = stream_param.strip().lower() in {"1", "true", "yes", "on"}
 
+        etag = _snapshot_etag(
+            tables=tables,
+            gzip_enabled=gzip_enabled,
+            stream_enabled=stream_enabled,
+        )
+        base_headers = {"ETag": etag, "Cache-Control": "no-cache"}
+        if _if_none_match_matches(etag):
+            return Response(status=304, headers=base_headers)
+
         if gzip_enabled or stream_enabled:
+
             def generate() -> Iterator[bytes]:
                 with get_connection() as conn:
                     chunks: Iterable[bytes] = iter_export_snapshot_json(conn, tables=tables)
@@ -346,7 +432,7 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
                         chunks = iter_gzip_bytes(chunks)
                     yield from chunks
 
-            headers = {}
+            headers = dict(base_headers)
             if gzip_enabled:
                 headers["Content-Encoding"] = "gzip"
             return Response(
@@ -356,7 +442,9 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
             )
 
         with get_connection() as conn:
-            return jsonify(export_snapshot(conn, tables=tables))
+            resp = jsonify(export_snapshot(conn, tables=tables))
+            resp.headers.update(base_headers)
+            return resp
 
     @app.post("/snapshot")
     @handler
@@ -366,11 +454,7 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
         tables = None
         if tables_param is not None and tables_param.strip():
             tables = [t.strip() for t in tables_param.split(",") if t.strip()]
-        payload = request.get_json(silent=True)
-        if payload is None:
-            raise ValueError("JSON body required")
-        if not isinstance(payload, dict):
-            raise ValueError("Body must be an object")
+        payload = _request_json_object()
 
         with get_connection() as conn:
             inserted = import_snapshot(conn, payload, mode=mode, tables=tables)

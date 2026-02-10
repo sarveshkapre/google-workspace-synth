@@ -74,6 +74,7 @@ Required environment variables (see blueprint for full details):
 - `GWSYNTH_DB_PATH` (default: `./data/gwsynth.db`)
 - `GWSYNTH_SEED` (optional integer for deterministic seeding)
 - `GWSYNTH_MAX_REQUEST_BYTES` (default: `2000000`) - max HTTP request body size
+- `GWSYNTH_SNAPSHOT_MAX_DECOMPRESSED_BYTES` (default: `50000000`) - max decompressed bytes for `POST /snapshot` when using `Content-Encoding: gzip`
 - `GWSYNTH_RATE_LIMIT_ENABLED` (default: `true`) - basic in-memory per-IP rate limiter
 - `GWSYNTH_RATE_LIMIT_RPM` (default: `600`) - requests per minute
 - `GWSYNTH_RATE_LIMIT_BURST` (default: `60`) - burst capacity
@@ -143,6 +144,15 @@ Import (replaces current DB contents):
 curl -s -X POST "http://localhost:8000/snapshot?mode=replace" \\
   -H "content-type: application/json" \\
   --data-binary @snapshot.json
+```
+
+Import a gzip-compressed snapshot directly (recommended for large snapshots):
+
+```bash
+curl -s -X POST "http://localhost:8000/snapshot?mode=replace" \\
+  -H "content-type: application/json" \\
+  -H "content-encoding: gzip" \\
+  --data-binary @snapshot.json.gz
 ```
 
 Import only selected tables:

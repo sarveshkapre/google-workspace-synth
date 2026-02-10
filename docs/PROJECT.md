@@ -18,6 +18,7 @@ make check
 - `GWSYNTH_DB_PATH` (default: `./data/gwsynth.db`)
 - `GWSYNTH_SEED` (optional integer for deterministic seeding)
 - `GWSYNTH_MAX_REQUEST_BYTES` (default: `2000000`) - max HTTP request body size
+- `GWSYNTH_SNAPSHOT_MAX_DECOMPRESSED_BYTES` (default: `50000000`) - max decompressed bytes for `POST /snapshot` when using `Content-Encoding: gzip`
 - `GWSYNTH_RATE_LIMIT_ENABLED` (default: `true`) - basic in-memory per-IP rate limiter
 - `GWSYNTH_RATE_LIMIT_RPM` (default: `600`) - requests per minute
 - `GWSYNTH_RATE_LIMIT_BURST` (default: `60`) - burst capacity
@@ -28,6 +29,6 @@ make check
 - `GWSYNTH_PORT` or `PORT` (default: `8000`) - bind port for `python -m gwsynth.main`
 
 ## Next 3 improvements
-1. Add richer snapshot compatibility guarantees (nullable/optional fill policy + explicit migration notes).
-2. Add fully mocked smoke coverage for real Workspace `apply --yes` / `destroy` workflows (no network).
-3. Add a small "demo guide" page (examples + curl snippets + recommended seed profiles).
+1. Swagger UI offline mode: optionally vendor Swagger UI assets to avoid CDN dependency for airgapped demos.
+2. Proxy-aware rate limiting: when `GWSYNTH_TRUST_PROXY=1`, optionally parse RFC 7239 `Forwarded` and/or `X-Real-IP`.
+3. OpenAPI completeness sweep: add schemas for currently underspecified responses (parity DX improvement).
