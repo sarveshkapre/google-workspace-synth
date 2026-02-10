@@ -90,6 +90,8 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
             CREATE INDEX IF NOT EXISTS idx_groups_name ON groups(name);
+            CREATE INDEX IF NOT EXISTS idx_users_created_id ON users(created_at, id);
+            CREATE INDEX IF NOT EXISTS idx_groups_created_id ON groups(created_at, id);
             DELETE FROM group_members
             WHERE rowid NOT IN (
                 SELECT MIN(rowid)
@@ -98,13 +100,22 @@ def init_db() -> None:
             );
             CREATE UNIQUE INDEX IF NOT EXISTS idx_group_members_unique
             ON group_members(group_id, user_id);
+            CREATE INDEX IF NOT EXISTS idx_group_members_group_created_id
+            ON group_members(group_id, created_at, id);
             CREATE INDEX IF NOT EXISTS idx_items_parent ON items(parent_id);
             CREATE INDEX IF NOT EXISTS idx_items_owner ON items(owner_user_id);
+            CREATE INDEX IF NOT EXISTS idx_items_created_id ON items(created_at, id);
+            CREATE INDEX IF NOT EXISTS idx_items_parent_created_id
+            ON items(parent_id, created_at, id);
+            CREATE INDEX IF NOT EXISTS idx_items_owner_created_id
+            ON items(owner_user_id, created_at, id);
             CREATE INDEX IF NOT EXISTS idx_permissions_item ON permissions(item_id);
             CREATE INDEX IF NOT EXISTS idx_share_links_item ON share_links(item_id);
             CREATE INDEX IF NOT EXISTS idx_comments_item ON comments(item_id);
             CREATE INDEX IF NOT EXISTS idx_activities_item_created
             ON activities(item_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_activities_item_created_id
+            ON activities(item_id, created_at, id);
             """
         )
 
