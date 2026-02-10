@@ -157,6 +157,33 @@ Structured, append-only memory for decisions and outcomes.
 - Trust Label: measured
 - Follow-ups: If we add proxy-aware parsing (RFC 7239 `Forwarded`), ensure spoofing remains impossible when `GWSYNTH_TRUST_PROXY` is off.
 
+- Date: 2026-02-10
+- Decision: `POST /snapshot` accepts gzip-compressed JSON (`Content-Encoding: gzip`) with a separate decompressed-size cap (`GWSYNTH_SNAPSHOT_MAX_DECOMPRESSED_BYTES`); `GET /snapshot` uses ETag/If-None-Match to short-circuit repeated exports; oversized bodies return a JSON `413` with an actionable hint.
+- Why: Large demo reset loops are a core workflow; gzip import avoids raising the global request-size cap and ETag reduces repeated export overhead.
+- Evidence: `src/gwsynth/api.py`, `src/gwsynth/config.py`, `src/gwsynth/main.py`, `src/gwsynth/openapi.py`, `tests/test_api.py`, `docs/DEMO_GUIDE.md`; local `make check` + `make smoke` pass.
+- Commit: a8788ec
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: If snapshot ETag collisions or mtime resolution issues show up, consider a lightweight DB change token (not full snapshot hashing).
+
+- Date: 2026-02-10
+- Decision: Added composite SQLite indexes to support cursor pagination ordering (`created_at`, `id`) for core list routes.
+- Why: Large seeded demo orgs should stay fast under cursor pagination; composite indexes reduce sort cost and improve filtered pagination (items by parent/owner, group members by group, activities by item).
+- Evidence: `src/gwsynth/db.py`; local `make check` pass.
+- Commit: 5bd5621
+- Confidence: Medium-High
+- Trust Label: measured
+- Follow-ups: If any endpoint becomes a hotspot, run `EXPLAIN QUERY PLAN` for typical seed sizes and tune indexes accordingly.
+
+- Date: 2026-02-10
+- Decision: Recorded verification evidence for this maintenance session.
+- Why: Keep changes auditable and reproducible.
+- Evidence: `make check` (pass), `make smoke` (pass).
+- Commit: N/A
+- Confidence: High
+- Trust Label: measured
+- Follow-ups: None.
+
 - Date: 2026-02-09
 - Decision: Recorded verification evidence for this maintenance session.
 - Why: Keep changes auditable and reproducible.

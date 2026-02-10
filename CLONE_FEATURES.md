@@ -10,11 +10,14 @@
 ## Candidate Features To Do
 - [ ] P2: Swagger UI offline mode: optionally vendor Swagger UI assets to avoid CDN dependency for airgapped demos. (Score: impact medium, effort medium, strategic fit medium, differentiation low, risk low, confidence medium)
 - [ ] P2: OpenAPI completeness sweep: add schemas for currently underspecified responses (parity DX improvement). (Score: impact low-medium, effort high, strategic fit medium, differentiation low, risk low, confidence medium)
-- [ ] P3: Pagination perf: add composite indexes supporting cursor pagination (`created_at`, `id`) for large seeds. (Score: impact low-medium, effort low, strategic fit medium, differentiation low, risk low, confidence medium)
 - [ ] P3: Proxy-aware rate limiting: when `GWSYNTH_TRUST_PROXY=1`, optionally parse RFC 7239 `Forwarded` and/or `X-Real-IP` to align with common reverse proxies. (Score: impact low-medium, effort medium, strategic fit low, differentiation low, risk low-medium, confidence medium)
-- [ ] P3: Snapshot caching: add ETag/If-None-Match on `GET /snapshot` to speed repeated demo resets. (Score: impact low-medium, effort medium, strategic fit medium, differentiation low, risk low-medium, confidence medium)
+- [ ] P3: Group members pagination: avoid N+1 user lookups by doing a joined, cursor-paginated query (keep response shape). (Score: impact low-medium, effort medium, strategic fit low, differentiation low, risk low, confidence medium)
 
 ## Implemented
+- [x] 2026-02-10: Snapshots: `POST /snapshot` now accepts gzip-compressed JSON via `Content-Encoding: gzip` with a decompressed-size cap; `GET /snapshot` now returns `ETag` and supports `If-None-Match` (`304`). Oversized requests return a JSON `413` with an actionable hint.
+  - Evidence: `src/gwsynth/api.py`, `src/gwsynth/config.py`, `src/gwsynth/main.py`, `src/gwsynth/openapi.py`, `tests/test_api.py::test_snapshot_import_accepts_gzip_content_encoding`, `tests/test_api.py::test_snapshot_etag_if_none_match`, `tests/test_api.py::test_request_entity_too_large_is_json`, `README.md`, `docs/DEMO_GUIDE.md`, `docs/SNAPSHOTS.md`.
+- [x] 2026-02-10: DB perf: added composite indexes for common cursor pagination orderings (`created_at`, `id`) across core tables (users/groups/items/group_members/activities).
+  - Evidence: `src/gwsynth/db.py`; local `make check` pass.
 - [x] 2026-02-09: Swagger UI auth ergonomics: added OpenAPI `securitySchemes` + global `security`, marked `/health` + `/stats` as public (`security: []`), and enabled Swagger UI auth persistence (`persistAuthorization`) for smoother interactive docs when `GWSYNTH_API_KEY` is set.
   - Evidence: `src/gwsynth/openapi.py`, `src/gwsynth/api.py`, `tests/test_api.py::test_openapi_and_docs_endpoints`.
 - [x] 2026-02-09: Rate limit UX: added `Retry-After` on `429` and asserted rate limit headers on throttled responses.
@@ -59,6 +62,10 @@
 - Snapshot `mode=replace_tables` intentionally runs with foreign keys enabled: partial restores may cascade-delete dependent rows (safer than leaving DB inconsistent).
 - Group membership deduplication needed DB-level enforcement for race safety, not only application-level existence checks.
 - API consumer ergonomics improved by returning explicit `404` for missing item scopes instead of silent empty lists.
+- Bounded market scan (untrusted): OpenAPI-driven mock tools commonly emphasize request/response validation as a baseline, and highlight OpenAPI import/export as a core workflow.
+  - Stoplight Prism: https://stoplight.io/open-source/prism
+  - WireMock OpenAPI validation docs: https://docs.wiremock.io/openAPI/openapi-validation
+  - Mockoon OpenAPI compatibility notes: https://mockoon.com/docs/latest/openapi/openapi-specification-compatibility/
 - Bounded market scan (untrusted): local mock servers commonly treat OpenAPI + interactive docs as baseline DX.
   - WireMock exposes Swagger UI docs at `/__admin/docs` and supports OpenAPI / JSON schema driven APIs: https://wiremock.org/docs/openapi/ and https://wiremock.org/docs/api/
   - Stoplight Prism emphasizes OpenAPI-driven mocking + request validation and dynamic examples: https://github.com/stoplightio/prism
