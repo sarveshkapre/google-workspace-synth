@@ -153,7 +153,15 @@ def openapi_spec() -> dict[str, Any]:
                             "description": "Users",
                             "content": {
                                 "application/json": {
-                                    "schema": {"oneOf": [{"type": "array"}, {"type": "object"}]}
+                                    "schema": {
+                                        "oneOf": [
+                                            {
+                                                "type": "array",
+                                                "items": {"$ref": "#/components/schemas/User"},
+                                            },
+                                            {"$ref": "#/components/schemas/UsersPage"},
+                                        ]
+                                    }
                                 }
                             },
                         }
@@ -227,7 +235,24 @@ def openapi_spec() -> dict[str, Any]:
                         {"$ref": "#/components/parameters/Limit"},
                         {"$ref": "#/components/parameters/Cursor"},
                     ],
-                    "responses": {"200": {"description": "Groups"}},
+                    "responses": {
+                        "200": {
+                            "description": "Groups",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "oneOf": [
+                                            {
+                                                "type": "array",
+                                                "items": {"$ref": "#/components/schemas/Group"},
+                                            },
+                                            {"$ref": "#/components/schemas/GroupsPage"},
+                                        ]
+                                    }
+                                }
+                            },
+                        }
+                    },
                 },
                 "post": {
                     "summary": "Create group",
@@ -239,7 +264,16 @@ def openapi_spec() -> dict[str, Any]:
                             }
                         },
                     },
-                    "responses": {"201": {"description": "Created"}},
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Group"}
+                                }
+                            },
+                        }
+                    },
                 },
             },
             "/groups/{group_id}": {
@@ -254,8 +288,22 @@ def openapi_spec() -> dict[str, Any]:
                         }
                     ],
                     "responses": {
-                        "200": {"description": "Group"},
-                        "404": {"description": "Not found"},
+                        "200": {
+                            "description": "Group",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Group"}
+                                }
+                            },
+                        },
+                        "404": {
+                            "description": "Not found",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
                     },
                 }
             },
@@ -273,8 +321,27 @@ def openapi_spec() -> dict[str, Any]:
                         {"$ref": "#/components/parameters/Cursor"},
                     ],
                     "responses": {
-                        "200": {"description": "Members"},
-                        "404": {"description": "Not found"},
+                        "200": {
+                            "description": "Members",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "oneOf": [
+                                            {"$ref": "#/components/schemas/GroupMembersList"},
+                                            {"$ref": "#/components/schemas/GroupMembersPage"},
+                                        ]
+                                    }
+                                }
+                            },
+                        },
+                        "404": {
+                            "description": "Not found",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
                     },
                 },
                 "post": {
@@ -346,7 +413,16 @@ def openapi_spec() -> dict[str, Any]:
                         {"$ref": "#/components/parameters/Limit"},
                         {"$ref": "#/components/parameters/Cursor"},
                     ],
-                    "responses": {"200": {"description": "Items"}},
+                    "responses": {
+                        "200": {
+                            "description": "Items",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/ItemsList"}
+                                }
+                            },
+                        }
+                    },
                 },
                 "post": {
                     "summary": "Create item",
@@ -359,7 +435,14 @@ def openapi_spec() -> dict[str, Any]:
                         },
                     },
                     "responses": {
-                        "201": {"description": "Created"},
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Item"}
+                                }
+                            },
+                        },
                         "400": {"description": "Validation error"},
                         "404": {"description": "Not found"},
                     },
@@ -377,8 +460,22 @@ def openapi_spec() -> dict[str, Any]:
                         }
                     ],
                     "responses": {
-                        "200": {"description": "Item"},
-                        "404": {"description": "Not found"},
+                        "200": {
+                            "description": "Item",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Item"}
+                                }
+                            },
+                        },
+                        "404": {
+                            "description": "Not found",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
                     },
                 }
             },
@@ -421,7 +518,14 @@ def openapi_spec() -> dict[str, Any]:
                         {"$ref": "#/components/parameters/Cursor"},
                     ],
                     "responses": {
-                        "200": {"description": "Permissions"},
+                        "200": {
+                            "description": "Permissions",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/PermissionsList"}
+                                }
+                            },
+                        },
                         "404": {"description": "Not found"},
                     },
                 },
@@ -486,7 +590,14 @@ def openapi_spec() -> dict[str, Any]:
                         {"$ref": "#/components/parameters/Cursor"},
                     ],
                     "responses": {
-                        "200": {"description": "Share links"},
+                        "200": {
+                            "description": "Share links",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/ShareLinksList"}
+                                }
+                            },
+                        },
                         "404": {"description": "Not found"},
                     },
                 },
@@ -551,7 +662,14 @@ def openapi_spec() -> dict[str, Any]:
                         {"$ref": "#/components/parameters/Cursor"},
                     ],
                     "responses": {
-                        "200": {"description": "Comments"},
+                        "200": {
+                            "description": "Comments",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/CommentsList"}
+                                }
+                            },
+                        },
                         "404": {"description": "Not found"},
                     },
                 },
@@ -600,7 +718,14 @@ def openapi_spec() -> dict[str, Any]:
                         },
                     ],
                     "responses": {
-                        "200": {"description": "Events"},
+                        "200": {
+                            "description": "Events",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/ActivityList"}
+                                }
+                            },
+                        },
                         "404": {"description": "Not found"},
                     },
                 }
@@ -618,7 +743,16 @@ def openapi_spec() -> dict[str, Any]:
                         {"$ref": "#/components/parameters/Limit"},
                         {"$ref": "#/components/parameters/Cursor"},
                     ],
-                    "responses": {"200": {"description": "Items"}},
+                    "responses": {
+                        "200": {
+                            "description": "Items",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/ItemsList"}
+                                }
+                            },
+                        }
+                    },
                 }
             },
         },
@@ -677,15 +811,87 @@ def openapi_spec() -> dict[str, Any]:
                         },
                     ]
                 },
+                "UsersPage": {
+                    "type": "object",
+                    "properties": {
+                        "users": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/User"},
+                        },
+                        "next_cursor": {"type": "string", "nullable": True},
+                    },
+                    "required": ["users", "next_cursor"],
+                },
                 "GroupIn": {
                     "type": "object",
                     "properties": {"name": {"type": "string"}, "description": {"type": "string"}},
                     "required": ["name"],
                 },
+                "Group": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "name": {"type": "string"},
+                        "description": {"type": "string"},
+                        "created_at": {"type": "string"},
+                    },
+                    "required": ["id", "name", "description", "created_at"],
+                },
+                "GroupsPage": {
+                    "type": "object",
+                    "properties": {
+                        "groups": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/Group"},
+                        },
+                        "next_cursor": {"type": "string", "nullable": True},
+                    },
+                    "required": ["groups", "next_cursor"],
+                },
                 "GroupMemberIn": {
                     "type": "object",
                     "properties": {"user_id": {"type": "string"}},
                     "required": ["user_id"],
+                },
+                "GroupMember": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "group_id": {"type": "string"},
+                        "user_id": {"type": "string"},
+                        "email": {"type": "string"},
+                        "display_name": {"type": "string"},
+                        "created_at": {"type": "string"},
+                    },
+                    "required": [
+                        "id",
+                        "group_id",
+                        "user_id",
+                        "email",
+                        "display_name",
+                        "created_at",
+                    ],
+                },
+                "GroupMembersList": {
+                    "type": "object",
+                    "properties": {
+                        "members": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/GroupMember"},
+                        }
+                    },
+                    "required": ["members"],
+                },
+                "GroupMembersPage": {
+                    "type": "object",
+                    "properties": {
+                        "members": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/GroupMember"},
+                        },
+                        "next_cursor": {"type": "string", "nullable": True},
+                    },
+                    "required": ["members", "next_cursor"],
                 },
                 "ItemIn": {
                     "type": "object",
@@ -702,6 +908,36 @@ def openapi_spec() -> dict[str, Any]:
                         },
                     },
                     "required": ["name", "item_type"],
+                },
+                "Item": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "name": {"type": "string"},
+                        "item_type": {"type": "string", "enum": ["folder", "doc", "sheet"]},
+                        "parent_id": {"type": "string", "nullable": True},
+                        "owner_user_id": {"type": "string", "nullable": True},
+                        "content_text": {"type": "string", "nullable": True},
+                        "sheet_data": {
+                            "type": "object",
+                            "additionalProperties": {"type": "string"},
+                            "nullable": True,
+                        },
+                        "created_at": {"type": "string"},
+                        "updated_at": {"type": "string"},
+                    },
+                    "required": ["id", "name", "item_type", "created_at", "updated_at"],
+                },
+                "ItemsList": {
+                    "type": "object",
+                    "properties": {
+                        "items": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/Item"},
+                        },
+                        "next_cursor": {"type": "string", "nullable": True},
+                    },
+                    "required": ["items"],
                 },
                 "ItemContentUpdateIn": {
                     "type": "object",
@@ -725,6 +961,39 @@ def openapi_spec() -> dict[str, Any]:
                     },
                     "required": ["principal_type", "role"],
                 },
+                "Permission": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "item_id": {"type": "string"},
+                        "principal_type": {
+                            "type": "string",
+                            "enum": ["user", "group", "anyone"],
+                        },
+                        "principal_id": {"type": "string", "nullable": True},
+                        "role": {"type": "string", "enum": ["owner", "editor", "viewer"]},
+                        "created_at": {"type": "string"},
+                    },
+                    "required": [
+                        "id",
+                        "item_id",
+                        "principal_type",
+                        "principal_id",
+                        "role",
+                        "created_at",
+                    ],
+                },
+                "PermissionsList": {
+                    "type": "object",
+                    "properties": {
+                        "permissions": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/Permission"},
+                        },
+                        "next_cursor": {"type": "string", "nullable": True},
+                    },
+                    "required": ["permissions"],
+                },
                 "ShareLinkIn": {
                     "type": "object",
                     "properties": {
@@ -734,6 +1003,29 @@ def openapi_spec() -> dict[str, Any]:
                     },
                     "required": ["role"],
                 },
+                "ShareLink": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "item_id": {"type": "string"},
+                        "token": {"type": "string"},
+                        "role": {"type": "string", "enum": ["owner", "editor", "viewer"]},
+                        "expires_at": {"type": "string", "nullable": True},
+                        "created_at": {"type": "string"},
+                    },
+                    "required": ["id", "item_id", "token", "role", "created_at"],
+                },
+                "ShareLinksList": {
+                    "type": "object",
+                    "properties": {
+                        "share_links": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/ShareLink"},
+                        },
+                        "next_cursor": {"type": "string", "nullable": True},
+                    },
+                    "required": ["share_links"],
+                },
                 "CommentIn": {
                     "type": "object",
                     "properties": {
@@ -741,6 +1033,58 @@ def openapi_spec() -> dict[str, Any]:
                         "body": {"type": "string"},
                     },
                     "required": ["author_user_id", "body"],
+                },
+                "Comment": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "item_id": {"type": "string"},
+                        "author_user_id": {"type": "string"},
+                        "body": {"type": "string"},
+                        "created_at": {"type": "string"},
+                    },
+                    "required": ["id", "item_id", "author_user_id", "body", "created_at"],
+                },
+                "CommentsList": {
+                    "type": "object",
+                    "properties": {
+                        "comments": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/Comment"},
+                        },
+                        "next_cursor": {"type": "string", "nullable": True},
+                    },
+                    "required": ["comments"],
+                },
+                "ActivityEvent": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "item_id": {"type": "string"},
+                        "event_type": {"type": "string"},
+                        "actor_user_id": {"type": "string", "nullable": True},
+                        "data": {"type": "object"},
+                        "created_at": {"type": "string"},
+                    },
+                    "required": [
+                        "id",
+                        "item_id",
+                        "event_type",
+                        "actor_user_id",
+                        "data",
+                        "created_at",
+                    ],
+                },
+                "ActivityList": {
+                    "type": "object",
+                    "properties": {
+                        "events": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/ActivityEvent"},
+                        },
+                        "next_cursor": {"type": "string", "nullable": True},
+                    },
+                    "required": ["events", "next_cursor"],
                 },
                 "Snapshot": {
                     "type": "object",

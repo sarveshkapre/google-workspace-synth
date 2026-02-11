@@ -65,14 +65,72 @@ class RateLimiter:
         self._buckets: dict[str, _Bucket] = {}
         self._requests_since_prune = 0
 
+    @staticmethod
+    def _first_csv_token(value: str) -> str | None:
+        for token in value.split(","):
+            part = token.strip()
+            if part:
+                return part
+        return None
+
+    @staticmethod
+    def _strip_ip_port(value: str) -> str | None:
+        text = value.strip().strip('"')
+        if not text or text.lower() == "unknown":
+            return None
+
+        if text.startswith("["):
+            end = text.find("]")
+            if end <= 1:
+                return None
+            return text[1:end]
+
+        if text.count(":") == 1:
+            host, maybe_port = text.rsplit(":", 1)
+            if maybe_port.isdigit() and host:
+                return host
+        return text
+
+    @classmethod
+    def _forwarded_for(cls, header_value: str) -> str | None:
+        for forwarded_entry in header_value.split(","):
+            for pair in forwarded_entry.split(";"):
+                key, sep, value = pair.partition("=")
+                if sep != "=":
+                    continue
+                if key.strip().lower() != "for":
+                    continue
+                parsed = cls._strip_ip_port(value)
+                if parsed:
+                    return parsed
+        return None
+
+    def _trusted_proxy_ip(self) -> str | None:
+        forwarded = request.headers.get("Forwarded", "")
+        if forwarded:
+            parsed = self._forwarded_for(forwarded)
+            if parsed:
+                return parsed
+
+        x_forwarded_for = request.headers.get("X-Forwarded-For", "")
+        if x_forwarded_for:
+            parsed = self._strip_ip_port(self._first_csv_token(x_forwarded_for) or "")
+            if parsed:
+                return parsed
+
+        x_real_ip = request.headers.get("X-Real-IP", "")
+        if x_real_ip:
+            parsed = self._strip_ip_port(x_real_ip)
+            if parsed:
+                return parsed
+        return None
+
     def _key(self) -> str:
         if self._config.trust_proxy:
-            # Only trust this header when the server is exclusively behind a trusted proxy.
-            forwarded = request.headers.get("X-Forwarded-For", "")
-            if forwarded:
-                first = forwarded.split(",")[0].strip()
-                if first:
-                    return first
+            # Only trust proxy headers when the server is exclusively behind a trusted proxy.
+            proxy_ip = self._trusted_proxy_ip()
+            if proxy_ip:
+                return proxy_ip
         return request.remote_addr or "unknown"
 
     def _get_bucket(self, key: str) -> _Bucket:

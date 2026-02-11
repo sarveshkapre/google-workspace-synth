@@ -78,7 +78,10 @@ Required environment variables (see blueprint for full details):
 - `GWSYNTH_RATE_LIMIT_ENABLED` (default: `true`) - basic in-memory per-IP rate limiter
 - `GWSYNTH_RATE_LIMIT_RPM` (default: `600`) - requests per minute
 - `GWSYNTH_RATE_LIMIT_BURST` (default: `60`) - burst capacity
-- `GWSYNTH_TRUST_PROXY` (default: `false`) - if `true`, trust `X-Forwarded-For` for rate limiting; only enable behind a trusted reverse proxy
+- `GWSYNTH_TRUST_PROXY` (default: `false`) - if `true`, trust proxy IP headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`) for rate limiting; only enable behind a trusted reverse proxy
+- `GWSYNTH_SWAGGER_UI_MODE` (default: `cdn`) - docs asset source: `cdn`, `local`, or `auto`
+- `GWSYNTH_SWAGGER_UI_LOCAL_DIR` (default: `./data/swagger-ui`) - local directory for vendored Swagger UI assets
+- `GWSYNTH_SWAGGER_UI_CDN_BASE_URL` (default: `https://unpkg.com/swagger-ui-dist@5`) - CDN base when docs mode resolves to CDN
 - `GWSYNTH_API_KEY` (optional) - require `Authorization: Bearer ...` or `X-API-Key: ...` (except `/`, `/health`, `/docs`, `/openapi.json`, `/stats`)
 - `GWSYNTH_DEBUG` (default: `false`) - enables Flask debug/reloader when running `python -m gwsynth.main`
 - `GWSYNTH_HOST` (default: `0.0.0.0`) - bind host for `python -m gwsynth.main`
@@ -106,6 +109,19 @@ history timeline. Key flags:
 - `GET /items/{item_id}/activity` (simple audit/activity timeline)
 - `GET /snapshot`, `POST /snapshot` (export/import seeded demo org snapshots)
 - `GET /search?q=...`
+
+## Offline API docs (airgapped demos)
+Vendor Swagger UI assets once:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/vendor_swagger_ui.py --out data/swagger-ui
+```
+
+Then run with local docs assets:
+
+```bash
+GWSYNTH_SWAGGER_UI_MODE=local make dev
+```
 
 ## Pagination
 Most list endpoints support optional cursor pagination via:

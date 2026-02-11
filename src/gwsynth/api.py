@@ -11,9 +11,16 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator, cast
 from uuid import uuid4
 
-from flask import Flask, Response, jsonify, request, stream_with_context
+from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
 
-from .config import api_key, db_path, snapshot_max_decompressed_bytes
+from .config import (
+    api_key,
+    db_path,
+    snapshot_max_decompressed_bytes,
+    swagger_ui_cdn_base_url,
+    swagger_ui_local_dir,
+    swagger_ui_mode,
+)
 from .db import get_connection
 from .openapi import openapi_spec
 from .pagination import Cursor, decode_cursor, encode_cursor, parse_limit
@@ -79,6 +86,17 @@ def _row_to_item(row: sqlite3.Row) -> dict[str, Any]:
         "sheet_data": sheet_data,
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
+    }
+
+
+def _row_to_group_member(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "group_id": row["group_id"],
+        "user_id": row["user_id"],
+        "email": row["email"],
+        "display_name": row["display_name"],
+        "created_at": row["created_at"],
     }
 
 
@@ -271,6 +289,47 @@ def _paginate_rows_desc(
     return rows, next_cursor
 
 
+def _paginate_group_members_with_users(
+    conn: sqlite3.Connection,
+    *,
+    group_id: str,
+    limit: int,
+    cursor: Cursor | None,
+) -> tuple[list[sqlite3.Row], str | None]:
+    where_clauses = ["gm.group_id = ?"]
+    all_params: list[Any] = [group_id]
+    if cursor is not None:
+        clause, clause_params = _page_clause_asc("gm.created_at", "gm.id", cursor)
+        where_clauses.append(clause)
+        all_params.extend(list(clause_params))
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+    rows = conn.execute(
+        f"""
+        SELECT
+            gm.id,
+            gm.group_id,
+            gm.user_id,
+            gm.created_at,
+            u.email,
+            u.display_name
+        FROM group_members gm
+        JOIN users u ON u.id = gm.user_id
+        {where_sql}
+        ORDER BY gm.created_at, gm.id
+        LIMIT ?
+        """,
+        (*all_params, limit + 1),
+    ).fetchall()
+
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = encode_cursor(Cursor(created_at=last["created_at"], id=last["id"]))
+        rows = rows[:limit]
+    return rows, next_cursor
+
+
 def register_routes(app: Flask) -> None:
     def handler(fn: Callable[..., Any]) -> Callable[..., Any]:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -281,6 +340,23 @@ def register_routes(app: Flask) -> None:
 
         wrapper.__name__ = fn.__name__
         return wrapper
+
+    def swagger_ui_asset_urls() -> tuple[str, str] | None:
+        mode = swagger_ui_mode()
+        local_dir = Path(swagger_ui_local_dir())
+        local_css = local_dir / "swagger-ui.css"
+        local_js = local_dir / "swagger-ui-bundle.js"
+        local_available = local_css.is_file() and local_js.is_file()
+
+        if mode == "local":
+            if local_available:
+                return ("/docs-assets/swagger-ui.css", "/docs-assets/swagger-ui-bundle.js")
+            return None
+        if mode == "auto" and local_available:
+            return ("/docs-assets/swagger-ui.css", "/docs-assets/swagger-ui-bundle.js")
+
+        cdn_base = swagger_ui_cdn_base_url()
+        return (f"{cdn_base}/swagger-ui.css", f"{cdn_base}/swagger-ui-bundle.js")
 
     @app.get("/health")
     def health() -> Any:
@@ -348,31 +424,74 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
     def openapi() -> Any:
         return jsonify(openapi_spec())
 
+    @app.get("/docs-assets/<path:asset_name>")
+    def docs_asset(asset_name: str) -> Any:
+        allowed = {"swagger-ui.css", "swagger-ui-bundle.js"}
+        if asset_name not in allowed:
+            return _json_error("Asset not found", 404)
+
+        local_dir = Path(swagger_ui_local_dir())
+        asset_path = local_dir / asset_name
+        if not asset_path.is_file():
+            return _json_error("Asset not found", 404)
+        return send_from_directory(local_dir, asset_name)
+
     @app.get("/docs")
     def docs() -> Any:
-        html = """
+        asset_urls = swagger_ui_asset_urls()
+        if asset_urls is None:
+            local_dir = swagger_ui_local_dir()
+            html = f"""
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>GWSynth API Docs</title>
-    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
     <style>
-      body { margin: 0; }
+      body {{ font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; }}
+      code {{ background: #f5f5f5; padding: 2px 6px; border-radius: 6px; }}
+    </style>
+  </head>
+  <body>
+    <h1>Swagger UI assets not found</h1>
+    <p>
+      <code>GWSYNTH_SWAGGER_UI_MODE=local</code> requires vendored assets in
+      <code>{local_dir}</code>.
+    </p>
+    <p>
+      Fetch assets with:
+      <code>PYTHONPATH=src ./.venv/bin/python scripts/vendor_swagger_ui.py --out {local_dir}</code>
+    </p>
+  </body>
+</html>
+"""
+            return Response(html, status=503, mimetype="text/html")
+
+        css_url, js_url = asset_urls
+        html = f"""
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GWSynth API Docs</title>
+    <link rel="stylesheet" href="{css_url}" />
+    <style>
+      body {{ margin: 0; }}
     </style>
   </head>
   <body>
     <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script src="{js_url}"></script>
     <script>
-      window.onload = () => {
-        SwaggerUIBundle({
+      window.onload = () => {{
+        SwaggerUIBundle({{
           url: "/openapi.json",
           dom_id: "#swagger-ui",
           persistAuthorization: true,
-        });
-      };
+        }});
+      }};
     </script>
   </body>
 </html>
@@ -486,6 +605,7 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
         ), 201
 
     @app.get("/users")
+    @handler
     def list_users() -> Any:
         limit = parse_limit(request.args.get("limit"))
         cursor_raw = request.args.get("cursor")
@@ -560,6 +680,7 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
         ), 201
 
     @app.get("/groups")
+    @handler
     def list_groups() -> Any:
         limit = parse_limit(request.args.get("limit"))
         cursor_raw = request.args.get("cursor")
@@ -641,6 +762,7 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
             ), 201
 
     @app.get("/groups/<group_id>/members")
+    @handler
     def list_group_members(group_id: str) -> Any:
         limit = parse_limit(request.args.get("limit"))
         cursor_raw = request.args.get("cursor")
@@ -669,47 +791,19 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
                 ).fetchall()
                 return jsonify(
                     {
-                        "members": [
-                            {
-                                "id": row["id"],
-                                "group_id": row["group_id"],
-                                "user_id": row["user_id"],
-                                "email": row["email"],
-                                "display_name": row["display_name"],
-                                "created_at": row["created_at"],
-                            }
-                            for row in rows
-                        ]
+                        "members": [_row_to_group_member(row) for row in rows]
                     }
                 )
 
-            rows, next_cursor = _paginate_rows_asc(
+            rows, next_cursor = _paginate_group_members_with_users(
                 conn,
-                table="group_members",
-                where=["group_id = ?"],
-                params=[group_id],
+                group_id=group_id,
                 limit=limit,
                 cursor=cursor,
             )
-            members: list[dict[str, Any]] = []
-            for row in rows:
-                user = conn.execute(
-                    "SELECT email, display_name FROM users WHERE id = ?",
-                    (row["user_id"],),
-                ).fetchone()
-                if not user:
-                    continue
-                members.append(
-                    {
-                        "id": row["id"],
-                        "group_id": row["group_id"],
-                        "user_id": row["user_id"],
-                        "email": user["email"],
-                        "display_name": user["display_name"],
-                        "created_at": row["created_at"],
-                    }
-                )
-            return jsonify({"members": members, "next_cursor": next_cursor})
+            return jsonify(
+                {"members": [_row_to_group_member(row) for row in rows], "next_cursor": next_cursor}
+            )
 
     @app.delete("/groups/<group_id>/members/<user_id>")
     def remove_group_member(group_id: str, user_id: str) -> Any:
@@ -815,6 +909,7 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
         return jsonify(_row_to_item(row)), 201
 
     @app.get("/items")
+    @handler
     def list_items() -> Any:
         parent_id = request.args.get("parent_id")
         owner_user_id = request.args.get("owner_user_id")
@@ -994,6 +1089,7 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
         ), 201
 
     @app.get("/items/<item_id>/permissions")
+    @handler
     def list_permissions(item_id: str) -> Any:
         limit = parse_limit(request.args.get("limit"))
         cursor_raw = request.args.get("cursor")
@@ -1142,6 +1238,7 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
         ), 201
 
     @app.get("/items/<item_id>/share-links")
+    @handler
     def list_share_links(item_id: str) -> Any:
         limit = parse_limit(request.args.get("limit"))
         cursor_raw = request.args.get("cursor")
@@ -1285,6 +1382,7 @@ curl -s http://localhost:8000/snapshot &gt; snapshot.json</code></pre>
         ), 201
 
     @app.get("/items/<item_id>/comments")
+    @handler
     def list_comments(item_id: str) -> Any:
         limit = parse_limit(request.args.get("limit"))
         cursor_raw = request.args.get("cursor")

@@ -1,6 +1,11 @@
 # CHANGELOG
 
 ## Unreleased
+- Return `400` (instead of `500`) for invalid `limit`, `cursor`, and filter query params on list/search routes.
+- Optimize paginated group member listing to avoid N+1 user lookups.
+- Extend trusted proxy rate-limit key extraction to support RFC 7239 `Forwarded` and `X-Real-IP` (in addition to `X-Forwarded-For`) when `GWSYNTH_TRUST_PROXY` is enabled.
+- Add optional offline Swagger UI docs mode with vendored assets (`GWSYNTH_SWAGGER_UI_MODE=local|auto`, `GWSYNTH_SWAGGER_UI_LOCAL_DIR`) and vendoring helper script (`scripts/vendor_swagger_ui.py`).
+- Expand OpenAPI response/schema coverage for high-traffic endpoints (`/users`, `/groups`, `/items`, permissions/share-links/comments, `/search`, `/items/{item_id}/activity`).
 - Add `GET /groups/<group_id>/members` endpoint with cursor pagination support.
 - Harden item creation/update validation by enforcing item-type-specific content fields.
 - Enforce permission principal invariants (`anyone` must omit `principal_id`; `user/group` require it).

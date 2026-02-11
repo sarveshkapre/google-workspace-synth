@@ -245,11 +245,73 @@ def test_openapi_and_docs_endpoints(tmp_path, monkeypatch):
     assert "BearerAuth" in spec["components"]["securitySchemes"]
     assert spec["paths"]["/health"]["get"].get("security") == []
     assert spec["paths"]["/stats"]["get"].get("security") == []
+    assert (
+        spec["paths"]["/items"]["get"]["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
+        == "#/components/schemas/ItemsList"
+    )
+    assert (
+        spec["paths"]["/items/{item_id}/permissions"]["get"]["responses"]["200"]["content"][
+            "application/json"
+        ]["schema"]["$ref"]
+        == "#/components/schemas/PermissionsList"
+    )
+    assert "GroupMembersPage" in spec["components"]["schemas"]
+    assert "ShareLinksList" in spec["components"]["schemas"]
 
     docs = client.get("/docs")
     assert docs.status_code == 200
     assert "text/html" in (docs.content_type or "")
     assert "persistAuthorization" in docs.data.decode("utf-8")
+
+
+def test_docs_local_mode_uses_vendored_assets(tmp_path, monkeypatch):
+    assets_dir = tmp_path / "swagger-assets"
+    assets_dir.mkdir()
+    (assets_dir / "swagger-ui.css").write_text("/* css */", encoding="utf-8")
+    (assets_dir / "swagger-ui-bundle.js").write_text("// js", encoding="utf-8")
+
+    client = _build_client(
+        tmp_path / "docs_local.db",
+        monkeypatch,
+        env={
+            "GWSYNTH_SWAGGER_UI_MODE": "local",
+            "GWSYNTH_SWAGGER_UI_LOCAL_DIR": str(assets_dir),
+        },
+    )
+
+    docs = client.get("/docs")
+    assert docs.status_code == 200
+    html = docs.data.decode("utf-8")
+    assert "/docs-assets/swagger-ui.css" in html
+    assert "/docs-assets/swagger-ui-bundle.js" in html
+
+    css = client.get("/docs-assets/swagger-ui.css")
+    assert css.status_code == 200
+    assert "text/css" in (css.content_type or "")
+    assert css.data.decode("utf-8") == "/* css */"
+
+    bundle = client.get("/docs-assets/swagger-ui-bundle.js")
+    assert bundle.status_code == 200
+    assert bundle.data.decode("utf-8") == "// js"
+
+
+def test_docs_local_mode_missing_assets_returns_503(tmp_path, monkeypatch):
+    client = _build_client(
+        tmp_path / "docs_local_missing.db",
+        monkeypatch,
+        env={
+            "GWSYNTH_SWAGGER_UI_MODE": "local",
+            "GWSYNTH_SWAGGER_UI_LOCAL_DIR": str(tmp_path / "missing-assets"),
+        },
+    )
+
+    docs = client.get("/docs")
+    assert docs.status_code == 503
+    body = docs.data.decode("utf-8")
+    assert "Swagger UI assets not found" in body
+    assert "vendor_swagger_ui.py" in body
 
 
 def test_api_key_auth_allows_docs_and_openapi(tmp_path, monkeypatch):
@@ -267,6 +329,27 @@ def test_api_key_auth_allows_docs_and_openapi(tmp_path, monkeypatch):
 
     assert client.get("/users").status_code == 401
     assert client.get("/users", headers={"X-API-Key": "secret"}).status_code == 200
+
+
+def test_api_key_auth_allows_docs_assets(tmp_path, monkeypatch):
+    assets_dir = tmp_path / "auth-docs-assets"
+    assets_dir.mkdir()
+    (assets_dir / "swagger-ui.css").write_text("/* auth css */", encoding="utf-8")
+    (assets_dir / "swagger-ui-bundle.js").write_text("// auth js", encoding="utf-8")
+
+    client = _build_client(
+        tmp_path / "auth_docs_assets.db",
+        monkeypatch,
+        env={
+            "GWSYNTH_API_KEY": "secret",
+            "GWSYNTH_SWAGGER_UI_MODE": "local",
+            "GWSYNTH_SWAGGER_UI_LOCAL_DIR": str(assets_dir),
+        },
+    )
+
+    assert client.get("/docs-assets/swagger-ui.css").status_code == 200
+    assert client.get("/docs-assets/swagger-ui-bundle.js").status_code == 200
+    assert client.get("/users").status_code == 401
 
 
 def test_rate_limiting(tmp_path, monkeypatch):
@@ -321,6 +404,44 @@ def test_rate_limiting_can_trust_x_forwarded_for_when_enabled(tmp_path, monkeypa
     assert client.get("/users", headers={"X-Forwarded-For": "1.1.1.1"}).status_code == 429
     # Different forwarded IP should be tracked separately when explicitly enabled.
     assert client.get("/users", headers={"X-Forwarded-For": "2.2.2.2"}).status_code == 200
+
+
+def test_rate_limiting_prefers_forwarded_header_when_trust_proxy_enabled(tmp_path, monkeypatch):
+    client = _build_client(
+        tmp_path / "ratelimit_forwarded.db",
+        monkeypatch,
+        env={
+            "GWSYNTH_RATE_LIMIT_ENABLED": "1",
+            "GWSYNTH_RATE_LIMIT_RPM": "1",
+            "GWSYNTH_RATE_LIMIT_BURST": "1",
+            "GWSYNTH_TRUST_PROXY": "1",
+        },
+    )
+
+    headers1 = {"Forwarded": "for=1.1.1.1", "X-Forwarded-For": "9.9.9.9"}
+    headers2 = {"Forwarded": "for=2.2.2.2", "X-Forwarded-For": "1.1.1.1"}
+
+    assert client.get("/users", headers=headers1).status_code == 200
+    assert client.get("/users", headers=headers1).status_code == 429
+    # Different RFC 7239 `for` value should be tracked as a different client.
+    assert client.get("/users", headers=headers2).status_code == 200
+
+
+def test_rate_limiting_uses_x_real_ip_as_proxy_fallback(tmp_path, monkeypatch):
+    client = _build_client(
+        tmp_path / "ratelimit_x_real_ip.db",
+        monkeypatch,
+        env={
+            "GWSYNTH_RATE_LIMIT_ENABLED": "1",
+            "GWSYNTH_RATE_LIMIT_RPM": "1",
+            "GWSYNTH_RATE_LIMIT_BURST": "1",
+            "GWSYNTH_TRUST_PROXY": "1",
+        },
+    )
+
+    assert client.get("/users", headers={"X-Real-IP": "1.1.1.1"}).status_code == 200
+    assert client.get("/users", headers={"X-Real-IP": "1.1.1.1"}).status_code == 429
+    assert client.get("/users", headers={"X-Real-IP": "2.2.2.2"}).status_code == 200
 
 
 def test_item_activity_timeline(tmp_path, monkeypatch):
@@ -481,6 +602,43 @@ def test_group_members_listing_and_idempotent_add(tmp_path, monkeypatch):
     assert len(page2["members"]) == 1
 
     assert client.get("/groups/missing/members").status_code == 404
+
+
+def test_invalid_query_params_return_400(tmp_path, monkeypatch):
+    client = _build_client(tmp_path / "invalid_query_params.db", monkeypatch)
+
+    user = client.post(
+        "/users", json={"email": "qp@example.com", "display_name": "Query Params"}
+    ).get_json()
+    group = client.post(
+        "/groups", json={"name": "Query Group", "description": "validation"}
+    ).get_json()
+    item = client.post(
+        "/items",
+        json={
+            "name": "Query Doc",
+            "item_type": "doc",
+            "owner_user_id": user["id"],
+            "content_text": "hello",
+        },
+    ).get_json()
+
+    for path, query in [
+        ("/users", {"limit": "abc"}),
+        ("/groups", {"cursor": "not-a-cursor"}),
+        (f"/groups/{group['id']}/members", {"limit": "0"}),
+        ("/items", {"item_type": "not-an-item-type"}),
+        (f"/items/{item['id']}/permissions", {"limit": "nope"}),
+        (f"/items/{item['id']}/share-links", {"cursor": "bad"}),
+        (f"/items/{item['id']}/comments", {"limit": "201"}),
+        ("/search", {"q": "Query", "cursor": "bad"}),
+        (f"/items/{item['id']}/activity", {"limit": "inf"}),
+    ]:
+        resp = client.get(path, query_string=query)
+        assert resp.status_code == 400, (path, resp.get_data(as_text=True))
+        body = resp.get_json()
+        assert isinstance(body, dict)
+        assert isinstance(body.get("error"), str)
 
 
 def test_create_item_validates_item_specific_fields(tmp_path, monkeypatch):

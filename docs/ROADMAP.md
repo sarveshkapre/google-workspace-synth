@@ -1,11 +1,19 @@
 # ROADMAP
 
 ## Next
-- Swagger UI offline mode: optionally vendor Swagger UI assets to avoid CDN dependency for airgapped demos.
-- Proxy-aware rate limiting: when `GWSYNTH_TRUST_PROXY=1`, optionally parse RFC 7239 `Forwarded` and/or `X-Real-IP`.
-- OpenAPI completeness sweep: add schemas for currently underspecified responses.
+- Request-id correlation (`X-Request-Id`) in responses and errors for easier debugging.
+- Rate-limit docs parity: specify `429` headers and examples in OpenAPI.
+- DB query-plan guardrails for hot list endpoints on large seeded datasets.
 
 ## Done
+- Query-param validation hardening: list/search routes now return `400` (not `500`) for invalid
+  `limit`, `cursor`, and filter values.
+- Group members pagination no longer performs N+1 user lookups; paginated reads are now joined.
+- Proxy-aware rate limiting now supports trusted `Forwarded` and `X-Real-IP` in addition to
+  `X-Forwarded-For` when `GWSYNTH_TRUST_PROXY=1`.
+- Swagger UI offline mode: optional local/vendored docs assets with CDN fallback (`GWSYNTH_SWAGGER_UI_MODE`).
+- OpenAPI completeness sweep for common list routes (`/users`, `/groups`, `/items`, permissions,
+  share-links, comments, activity, search).
 - Snapshot export/import for deterministic demo resets.
 - Snapshot v2 metadata + schema checks; selective snapshot table export/import.
 - Snapshot streaming + gzip export for large datasets (API + CLI).

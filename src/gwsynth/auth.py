@@ -14,7 +14,7 @@ def install_api_key_auth(app: Flask, api_key: str | None) -> None:
 
     @app.before_request
     def _require_api_key() -> Response | None:
-        if request.path in allow_paths:
+        if request.path in allow_paths or request.path.startswith("/docs-assets/"):
             return None
 
         provided = request.headers.get("X-API-Key")

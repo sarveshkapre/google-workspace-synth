@@ -10,6 +10,9 @@ DEFAULT_RATE_LIMIT_ENABLED = True
 DEFAULT_RATE_LIMIT_RPM = 600
 DEFAULT_RATE_LIMIT_BURST = 60
 DEFAULT_TRUST_PROXY = False
+DEFAULT_SWAGGER_UI_MODE = "cdn"
+DEFAULT_SWAGGER_UI_CDN_BASE_URL = "https://unpkg.com/swagger-ui-dist@5"
+DEFAULT_SWAGGER_UI_LOCAL_DIR = "./data/swagger-ui"
 
 
 def db_path() -> str:
@@ -95,6 +98,28 @@ def trust_proxy() -> bool:
     if lowered in {"1", "true", "yes", "on"}:
         return True
     return DEFAULT_TRUST_PROXY
+
+
+def swagger_ui_mode() -> str:
+    raw = os.environ.get("GWSYNTH_SWAGGER_UI_MODE")
+    value = (raw or DEFAULT_SWAGGER_UI_MODE).strip().lower()
+    if value in {"cdn", "local", "auto"}:
+        return value
+    return DEFAULT_SWAGGER_UI_MODE
+
+
+def swagger_ui_cdn_base_url() -> str:
+    raw = os.environ.get("GWSYNTH_SWAGGER_UI_CDN_BASE_URL")
+    value = (raw or DEFAULT_SWAGGER_UI_CDN_BASE_URL).strip()
+    if not value:
+        return DEFAULT_SWAGGER_UI_CDN_BASE_URL
+    return value.rstrip("/")
+
+
+def swagger_ui_local_dir() -> str:
+    raw = os.environ.get("GWSYNTH_SWAGGER_UI_LOCAL_DIR")
+    value = (raw or DEFAULT_SWAGGER_UI_LOCAL_DIR).strip()
+    return value or DEFAULT_SWAGGER_UI_LOCAL_DIR
 
 
 def api_key() -> str | None:
