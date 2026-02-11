@@ -192,3 +192,71 @@ Structured, append-only memory for decisions and outcomes.
 - Confidence: High
 - Trust Label: measured
 - Follow-ups: None.
+
+## Recent Decisions (2026-02-11)
+- Date: 2026-02-11
+- Decision: Hardened list/search query param validation so malformed `limit`, `cursor`, and filter values return `400` JSON errors.
+- Why: Unhandled `ValueError` in several GET routes would otherwise bubble to `500` in production mode.
+- Evidence: `src/gwsynth/api.py`, `tests/test_api.py::test_invalid_query_params_return_400`.
+- Commit: 52c8cdc
+- Confidence: High
+- Trust Label: trusted
+- Follow-ups: Add pagination contract tests for every paginated route.
+
+- Date: 2026-02-11
+- Decision: Removed paginated group-members N+1 lookups with a joined cursor query.
+- Why: Large groups caused avoidable per-member user queries.
+- Evidence: `src/gwsynth/api.py`, `tests/test_api.py::test_group_members_listing_and_idempotent_add`.
+- Commit: 52c8cdc
+- Confidence: High
+- Trust Label: trusted
+- Follow-ups: Add query-plan guardrails for high-cardinality list routes.
+
+- Date: 2026-02-11
+- Decision: Added trusted proxy client IP parsing for `Forwarded` and `X-Real-IP` (with existing `X-Forwarded-For`) when `GWSYNTH_TRUST_PROXY=1`.
+- Why: Reverse-proxy deployments commonly emit different header conventions.
+- Evidence: `src/gwsynth/rate_limit.py`, `tests/test_api.py::test_rate_limiting_prefers_forwarded_header_when_trust_proxy_enabled`, `tests/test_api.py::test_rate_limiting_uses_x_real_ip_as_proxy_fallback`.
+- Commit: 52c8cdc
+- Confidence: Medium-High
+- Trust Label: trusted
+- Follow-ups: Document explicit proxy-chain assumptions if multi-hop proxying is introduced.
+
+- Date: 2026-02-11
+- Decision: Added offline Swagger UI docs mode (`cdn`/`local`/`auto`) with vendored asset serving and helper script.
+- Why: Airgapped/demo environments should not depend on external CDNs.
+- Evidence: `src/gwsynth/config.py`, `src/gwsynth/api.py`, `src/gwsynth/auth.py`, `scripts/vendor_swagger_ui.py`, `tests/test_api.py::test_docs_local_mode_uses_vendored_assets`.
+- Commit: 52c8cdc
+- Confidence: High
+- Trust Label: trusted
+- Follow-ups: Add smoke coverage for local docs mode in `scripts/smoke.py`.
+
+- Date: 2026-02-11
+- Decision: Expanded OpenAPI schemas for high-traffic list/resource responses.
+- Why: SDK/demo consumers need stronger contracts than generic `object`/`array` placeholders.
+- Evidence: `src/gwsynth/openapi.py`, `tests/test_api.py::test_openapi_and_docs_endpoints`.
+- Commit: 52c8cdc
+- Confidence: High
+- Trust Label: trusted
+- Follow-ups: Add explicit `429` response schema + rate-limit headers in OpenAPI.
+
+- Date: 2026-02-11
+- Decision: Bounded market scan reaffirmed baseline expectations: OpenAPI-driven mocks emphasize validation/import workflows and docs can be self-hosted.
+- Why: Prioritization input for parity features without copying proprietary assets/code.
+- Evidence: Stoplight Prism (`https://stoplight.io/open-source/prism`), Mockoon OpenAPI compatibility (`https://mockoon.com/docs/latest/openapi/openapi-specification-compatibility/`), Swagger UI installation/config docs (`https://swagger.io/docs/open-source-tools/swagger-ui/usage/installation/`, `https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/`), WireMock OpenAPI validation (`https://docs.wiremock.io/openAPI/openapi-validation`).
+- Commit: N/A
+- Confidence: Medium
+- Trust Label: untrusted
+- Follow-ups: Re-run scan quarterly for parity drift.
+
+## Mistakes And Fixes (2026-02-11)
+- Root Cause: The `/docs` HTML switched to an f-string and unescaped JS object braces triggered a Python `NameError` (`url`).
+- Fix: Escaped JS braces (`{{ ... }}`) inside the f-string.
+- Prevention Rule: For f-string HTML/JS templates, immediately run endpoint tests that render the page (`/docs`) before merging.
+- Evidence: `tests/test_api.py` failures and subsequent pass in local pytest run.
+
+## Verification Evidence (2026-02-11)
+- `gh issue list --state open --limit 50 --json number,title,author,labels,url` -> `[]` (pass; no owner/bot issues to action).
+- `gh run list --limit 20 --json ...` (pre-change baseline) -> no failing completed runs (pass).
+- `PYTHONPATH=src ./.venv/bin/pytest tests/test_api.py -q` -> `28 passed` (pass).
+- `make check` -> Ruff/Mypy/Pytest/compileall all pass (`43 passed`).
+- `make smoke` -> `smoke ok` (pass).
